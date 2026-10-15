@@ -8,6 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jev, place, vec, squareVars, EMB } from "../src/jev.js";
+import { verdictOf } from "../src/deck.js";
 import { SEED } from "../src/fixtures.js";
 
 /** @typedef {import("../src/types.js").Page} Page */
@@ -89,6 +90,12 @@ test("a new topic takes the midpoint of the widest empty arc", () => {
   assert.equal(r.novel, true);
   // widest gap is 90° → 360°, midpoint 225°; jitter is ±4°
   assert.ok(angDist(r.ang, 225) <= 5, `got ${r.ang.toFixed(1)}°, want 225° ±5`);
+});
+
+test("the verdict word follows novel and confidence", () => {
+  assert.equal(verdictOf({ novel: true, r: 0.25 }), "new topic");
+  assert.equal(verdictOf({ novel: false, r: 0.9 }), "follow-up");
+  assert.equal(verdictOf({ novel: false, r: 0.6 }), "related");
 });
 
 test("chroma is monotonic in confidence", () => {

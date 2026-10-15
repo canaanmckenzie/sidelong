@@ -11,6 +11,11 @@ import { parse } from "./md.js";
 
 /** @typedef {import("./types.js").Page} Page */
 
+/** The readout's verdict word for a page. @param {Pick<Page, "novel" | "r">} p */
+export function verdictOf(p) {
+  return p.novel ? "new topic" : p.r > 0.8 ? "follow-up" : "related";
+}
+
 /** Inline markdown spans into an element, all via textContent. @param {HTMLElement} el @param {import("./md.js").Inline[]} parts */
 function fillInline(el, parts) {
   for (const t of parts) {
@@ -46,7 +51,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
   function readout(p, i) {
     if (i === 0 && p.near === null) return "first page · hue " + Math.round(p.ang) + "°";
     const nearest = p.near === null || p.sim === null ? "" : "nearest <b>#" + (p.near + 1) + "</b> " + p.sim.toFixed(2);
-    const verdict = p.novel ? "new topic" : p.r > 0.8 ? "follow-up" : "related";
+    const verdict = (p.was ? p.was + " → " : "") + verdictOf(p);
     return verdict + " · " + nearest + " · hue " + Math.round(p.ang) + "° · confidence " + Math.round(p.r * 100) + "%"
       + (p.offline ? " · offline" : "");
   }
@@ -181,6 +186,29 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     }
   }
 
+  /**
+   * After the answer streams, re-embed question+answer and re-place: the
+   * answer is a far better signal than a seven-word question, so the
+   * verdict may change — the readout shows "new topic → follow-up" when
+   * it does. The square cross-fades; the page never moves.
+   * @param {Page} p @param {number} i
+   */
+  async function recolor(p, i) {
+    try {
+      const [qa] = await embed([p.q + " " + p.a]);
+      p.evec = qa;
+      const earlier = state.pages.slice(0, i);
+      const sims = earlier.map(pg => (pg.evec ? cosineVec(qa, pg.evec) : 0));
+      const r = place(p.q, sims, earlier, EMB);
+      const before = verdictOf(p);
+      p.ang = r.ang; p.r = r.r; p.near = r.near; p.sim = r.sim; p.novel = r.novel;
+      if (verdictOf(p) !== before) p.was = before;
+      render();
+    } catch {
+      // offline: the submit-time placement stands
+    }
+  }
+
   /** @param {string} text */
   async function ask(text) {
     // Paint first: the square and the question appear the moment Enter
@@ -224,8 +252,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       busy = false;
       if (askBtn) askBtn.disabled = false;
       reindexPage(p); // later questions score against the full answer
-      // upgrade the embedding the same way (re-coloring from it is milestone 5)
-      void embed([p.q + " " + p.a]).then(v => { p.evec = v[0]; }).catch(() => {});
+      void recolor(p, i);
     }
   }
 

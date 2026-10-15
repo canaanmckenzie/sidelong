@@ -16,6 +16,7 @@
  * @property {Map<string, number>} [vec]  bag-of-words vector; set by the store
  * @property {number[]} [evec]        embedding vector (question alone until the answer lands, then question+answer)
  * @property {boolean} [offline]      embedding placement failed; the square stands on the word-match fallback
+ * @property {string} [was]           the verdict before the post-answer re-color changed it
  *
  * @typedef {object} JevResult
  * @property {number} ang
