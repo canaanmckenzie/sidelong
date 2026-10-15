@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "node tools/start.js",
     "dev": "node tools/serve.js",
     "server": "node server/index.js",
     "test": "node --test",

@@ -37,13 +37,24 @@ const MAX_BODY = 1 << 20; // 1 MiB
  */
 let lastLimit = null;
 
-/** @type {Record<string, string>} */
-const CORS = {
-  "access-control-allow-origin": ORIGIN,
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-  "access-control-allow-headers": "content-type",
-  vary: "origin",
-};
+// localhost and 127.0.0.1 are the same machine but different origins;
+// accept either spelling so a typed-in address doesn't silently break CORS
+const ORIGINS = new Set([ORIGIN, ORIGIN.replace("localhost", "127.0.0.1"), ORIGIN.replace("127.0.0.1", "localhost")]);
+
+/**
+ * CORS headers for this response's request.
+ * @param {import("node:http").ServerResponse} res
+ * @returns {Record<string, string>}
+ */
+function cors(res) {
+  const o = res.req.headers.origin;
+  return {
+    "access-control-allow-origin": o && ORIGINS.has(o) ? o : ORIGIN,
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    vary: "origin",
+  };
+}
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -67,7 +78,7 @@ async function readJson(req) {
  * @param {unknown} body
  */
 function sendJson(res, status, body) {
-  res.writeHead(status, { ...CORS, "content-type": "application/json" });
+  res.writeHead(status, { ...cors(res), "content-type": "application/json" });
   res.end(JSON.stringify(body));
 }
 
@@ -132,7 +143,7 @@ async function handleChat(req, res) {
   const child = spawn(CLAUDE_BIN, args, { cwd: homedir(), stdio: ["ignore", "pipe", "pipe"] });
   res.on("close", () => child.kill("SIGTERM")); // reader gone → stop the turn
 
-  res.writeHead(200, { ...CORS, "content-type": "text/event-stream", "cache-control": "no-store" });
+  res.writeHead(200, { ...cors(res), "content-type": "text/event-stream", "cache-control": "no-store" });
   /** @param {import("./sse.js").ChatEvent} ev */
   const send = (ev) => res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`);
 
@@ -185,7 +196,7 @@ async function handleHealth(res) {
 createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") {
-      res.writeHead(204, CORS);
+      res.writeHead(204, cors(res));
       return void res.end();
     }
     if (req.method === "GET" && req.url === "/healthz") return await handleHealth(res);

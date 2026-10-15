@@ -8,7 +8,8 @@ hue says what the page is about, saturation says how sure the classifier
 was — so related follow-ups share a color and a stack of twenty old
 pages can be scanned by eye.
 
-![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png)
+![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png#gh-light-mode-only)
+![Sidelong: strips on the left, the open page in the middle](docs/screenshot-dark.png#gh-dark-mode-only)
 
 It runs entirely on things you already have. Chat drives the Claude Code
 CLI you're logged into, so turns are billed to your existing Claude
@@ -17,30 +18,46 @@ deck *is* one Claude session, resumed turn by turn. Topic embeddings
 come from a small local Ollama model. There are **no API keys anywhere**
 and no accounts beyond the ones you already have.
 
-## Requirements
+## Quick start
 
-- **Node.js 22+**
-- **[Claude Code](https://claude.com/claude-code)**, installed and
-  logged in (`claude` on your PATH). The server runs it headless
-  (`claude -p`); usage counts against your subscription's normal limits,
-  which you can check from the `%` glyph in the composer.
-- **[Ollama](https://ollama.com)** for embeddings, which run locally and
-  free. Install it (macOS/Windows: the app from ollama.com/download;
-  Linux: `curl -fsSL https://ollama.com/install.sh | sh`, or unpack the
-  release tarball anywhere and put `bin/ollama` on your PATH — no root
-  needed), then pull the model:
+You need two things installed first (one-time, a few minutes):
 
-  ```
-  ollama pull mxbai-embed-large   # ~670 MB; CPU is plenty
-  ```
+1. **[Claude Code](https://claude.com/claude-code)** — install it, then
+   run `claude` once in a terminal and log in with your Claude account.
+   That's the only account sidelong ever uses: the server runs the CLI
+   headless (`claude -p`), so chat is billed to your subscription like
+   any normal `claude` session, against the same usage limits (the `%`
+   glyph in the composer shows where you stand).
+2. **[Ollama](https://ollama.com)** — embeddings run on it, locally and
+   free. macOS/Windows: install the app from
+   [ollama.com/download](https://ollama.com/download). Linux:
+   `curl -fsSL https://ollama.com/install.sh | sh` (or unpack the
+   release tarball anywhere and put `bin/ollama` on your PATH — no root
+   needed). You do **not** need to pull any model — the launcher does
+   that itself.
 
-## Running it
+Then, with Node.js 22+:
 
 ```
-npm install        # dev deps only (typescript + @types/node); install scripts are disabled
+git clone https://github.com/canaanmckenzie/sidelong.git
+cd sidelong
+npm install     # dev-only deps (typescript + @types/node); install scripts are disabled
+npm start
 ```
 
-Then three processes, any order:
+`npm start` checks everything and tells you exactly what's missing if
+something is: it verifies the `claude` CLI, starts Ollama if it's
+installed but not running, **pulls the embedding model automatically on
+first run** (~670 MB, with progress), and launches both servers. When it
+prints `sidelong → http://localhost:5173`, open that and ask something.
+
+Arrow keys move between pages when the composer isn't focused; clicking
+any strip opens it. If the server or Ollama ever goes down, asking still
+paints colors from an offline word-match fallback and the readout
+appends `offline`.
+
+<details>
+<summary>Running the pieces by hand instead</summary>
 
 ```
 ollama serve       # embeddings       → localhost:11434
@@ -48,11 +65,9 @@ npm run server     # the thin server  → localhost:8787
 npm run dev        # the app          → localhost:5173
 ```
 
-Open http://localhost:5173 and ask something. Arrow keys move between
-pages when the composer isn't focused; clicking any strip opens it.
-
-If the server or Ollama is down, asking still paints colors from an
-offline word-match fallback and the readout appends `offline`.
+Three processes, any order; `ollama pull mxbai-embed-large` once
+beforehand.
+</details>
 
 ## How to read a page
 
@@ -110,11 +125,13 @@ built-in runner (`npm test`).
 - `src/store.js` — deck state (in memory until milestone 6)
 - `src/theme.js` — the black-on-white and slate-with-cream palettes
 - `src/fixtures.js` — the five seed pages, also used by the tests
+- `src/types.js` — the data shapes (JSDoc typedefs; the checker's contract)
 - `server/index.js` — the thin server: `POST /chat` spawns `claude -p`
   (stream-json → simplified SSE), `POST /embed` calls Ollama,
   `GET /healthz`; `node:http` + `fetch`, nothing else
 - `server/sse.js` — stream parsing and translation; pure functions
-- `tools/serve.js`, `tools/calibrate.js` — dev server, calibration
+- `tools/start.js`, `tools/serve.js`, `tools/calibrate.js` — the
+  one-command launcher, the dev server, the calibration script
 
 `HANDOFF.md` is the full design document (interaction model, visual
 spec, the classifier math, acceptance criteria). `SESSION-NOTES.md`

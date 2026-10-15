@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>demo</title>
+<!-- The README screenshots render from this page:
+  npm run dev, then screenshot http://localhost:5173/docs/demo.html
+  (append ?theme=dark for the slate variant) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="meta"><span class="hint"><kbd>←</kbd> <kbd>→</kbd> to move</span></div>
+    <button id="theme" type="button"><span class="swatch"></span><span id="themeLabel">b/w</span></button>
+  </header>
+  <main class="deck" id="deck"></main>
+  <form class="composer" id="composer">
+    <textarea id="q" rows="1" placeholder="Ask a follow-up, or something new"></textarea>
+    <button id="ask" type="submit">Ask</button>
+    <button id="limits" type="button">%</button>
+  </form>
+</div>
+<script type="module">
+if (new URLSearchParams(location.search).get("theme") === "dark") {
+  document.documentElement.dataset.theme = "dark";
+  document.getElementById("themeLabel").textContent = "slate";
+}
+import { initDeck } from "../src/deck.js";
+import { state, addPage } from "../src/store.js";
+import { SEED } from "../src/fixtures.js";
+for (const p of SEED) addPage({ ...p });
+addPage({
+  q: "write me a sneaky little lisp script for a boids algorithm",
+  a: [
+    "Here's a compact flock in Common Lisp — the whole trick is three steering rules summed per bird (assuming the usual 2-d vector helpers: `v+`, `v-`, `v*`, `dist`, `centroid`):",
+    [
+      "```lisp",
+      "(defstruct boid pos vel)",
+      "",
+      "(defun neighbors (b flock radius)",
+      "  (remove-if (lambda (o)",
+      "               (or (eq o b)",
+      "                   (> (dist (boid-pos b) (boid-pos o)) radius)))",
+      "             flock))",
+      "",
+      "(defun steer (b flock)",
+      "  (let ((near  (neighbors b flock 60.0))",
+      "        (close (neighbors b flock 20.0)))",
+      "    (if (null near)",
+      "        #(0 0)",
+      "        (v+ ;; cohesion: drift toward the center of mass",
+      "            (v* (v- (centroid (mapcar #'boid-pos near))",
+      "                    (boid-pos b))",
+      "                0.01)",
+      "            ;; alignment: match the neighborhood's heading",
+      "            (v* (v- (centroid (mapcar #'boid-vel near))",
+      "                    (boid-vel b))",
+      "                0.05)",
+      "            ;; separation: push off anyone too close",
+      "            (v* (reduce #'v+",
+      "                        (mapcar (lambda (o)",
+      "                                  (v- (boid-pos b) (boid-pos o)))",
+      "                                close)",
+      "                        :initial-value #(0 0))",
+      "                0.15)))))",
+      "",
+      "(defun tick (flock)",
+      "  (dolist (b flock)",
+      "    (setf (boid-vel b)",
+      "          (clamp-speed (v+ (boid-vel b) (steer b flock)) 4.0))",
+      "    (setf (boid-pos b)",
+      "          (wrap (v+ (boid-pos b) (boid-vel b))))))",
+      "```",
+    ].join("\n"),
+    "The three weights are the personality of the flock:",
+    "- **separation** (0.15) — push away from anyone inside 20 units; keep this the loudest or the flock collapses into a knot\n- **alignment** (0.05) — nudge velocity toward the local average heading\n- **cohesion** (0.01) — drift gently toward the neighborhood's center of mass",
+    "Call `tick` from any canvas loop at 60 fps and wrap positions at the edges. Thirty boids is already hypnotic.",
+  ].join("\n\n"),
+  ang: 152, r: 0.25, near: null, sim: null, novel: true,
+}, true);
+state.active = state.pages.length - 1;
+initDeck({
+  deck: document.getElementById("deck"),
+  form: document.getElementById("composer"),
+  input: document.getElementById("q"),
+});
+</script>
+</body>
+</html>
