@@ -51,9 +51,12 @@ first run** (~670 MB, with progress), and launches both servers. When it
 prints `sidelong → http://localhost:5173`, open that and ask something.
 
 Arrow keys move between pages when the composer isn't focused; clicking
-any strip opens it. If the server or Ollama ever goes down, asking still
-paints colors from an offline word-match fallback and the readout
-appends `offline`.
+any strip opens it. The deck persists in the browser (IndexedDB), so a
+reload restores your pages — and the Claude session behind them, so
+follow-ups still continue the same conversation tomorrow. The `⋯` glyph
+by the composer exports the deck as JSON, imports one, or starts fresh.
+If the server or Ollama ever goes down, asking still paints colors from
+an offline word-match fallback and the readout appends `offline`.
 
 <details>
 <summary>Running the pieces by hand instead</summary>
@@ -124,7 +127,8 @@ built-in runner (`npm test`).
   slant, and ink level)
 - `src/chat.js` — streaming client for the thin server
 - `src/limits.js` — the `%` usage glyph and its readout
-- `src/store.js` — deck state (in memory until milestone 6)
+- `src/deckmenu.js` — the `⋯` glyph: export / import / new deck
+- `src/store.js` — deck state, persisted to IndexedDB; JSON export/import
 - `src/theme.js` — the black-on-white and slate-with-cream palettes
 - `src/fixtures.js` — the five seed pages, also used by the tests
 - `src/types.js` — the data shapes (JSDoc typedefs; the checker's contract)
@@ -140,9 +144,9 @@ spec, the classifier math, acceptance criteria). `SESSION-NOTES.md`
 tracks the build session to session. `prototype/sidelong.html` is the
 original one-file prototype.
 
-Milestone status (see HANDOFF.md): **1–5 done** — scaffold, server,
-wired chat, real classifier, re-color. Next: persistence (milestone 6:
-IndexedDB, reload restores the deck) and polish (milestone 7).
+Milestone status (see HANDOFF.md): **1–6 done** — scaffold, server,
+wired chat, real classifier, re-color, persistence. Next: polish
+(milestone 7: trackpad paging, strip overflow past ~30 pages).
 
 ## License
 

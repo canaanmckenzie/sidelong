@@ -144,15 +144,36 @@ Also this pass: header page count removed (user request); readout
 earlier trimmed to verdict + confidence with raw numbers in the
 tooltip.
 
-## Next: milestone 6 (HANDOFF.md)
+## Milestone 6 (done) + composer realignment
 
-Persistence: IndexedDB for pages behind the existing store functions;
-load the last deck on open (restore sessionId with it so the Claude
-session resumes); export/import JSON. Mind: evec arrays (768 floats)
-serialize fine; vec Maps need structured clone (IndexedDB handles Maps)
-or rebuild via reindexPage on load. Then milestone 7 polish (trackpad
-scroll steps pages; strip overflow rail past ~30 pages — the container
-query already handles legibility).
+- **Persistence:** IndexedDB ("sidelong"/"decks"/"current") behind
+  store.js. `loadDeck()` on boot (restores pages, sessionId, active —
+  a stored EMPTY deck is a deliberate "new deck", don't re-seed);
+  `saveDeck()` debounced 400ms, called from render/session/stream-end;
+  no-op until loadDeck ran, so docs/demo.html and tests never write.
+  Verified in real headless Firefox across two processes: pages, the
+  vec Map (structured clone keeps Maps), evec, sessionId all round-trip.
+  NOTE: headless `firefox --screenshot` exits before async work — for
+  anything async, run firefox without --screenshot and report via HTTP.
+- **Deck menu:** `⋯` glyph beside `%` → export deck (JSON download,
+  vec Maps dropped, rebuilt on import), import deck (validated, garbage
+  refused), new deck (confirm; empty deck + null session). Pure
+  serialize/restore in store.js, tested (43/43).
+- **Composer realigned (user request, need-to-realign-ask.png):** the
+  composer is now a centered 66ch column mirroring .col (same padding,
+  box-sizing), with form padding-left/right = strips either side of the
+  open page — input text aligns exactly with answer text, chat-style.
+  Both paddings animate with the deck easing.
+- Known limitation: two app tabs open at once are last-writer-wins on
+  the single "current" deck key. Fine for v1; multi-deck is future work.
+
+## Next: milestone 7 (HANDOFF.md)
+
+Polish: horizontal trackpad scroll steps pages; strip overflow past ~30
+pages (the <23px container query already keeps crowded strips legible as
+pure color; what's missing is a cap/rail decision). Also flagged in old
+review: the "60° from every page" acceptance criterion is unsatisfiable
+past 6 topics — accept or amend the criterion.
 
 ## Environment
 

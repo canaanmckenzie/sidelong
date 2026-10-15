@@ -5,7 +5,7 @@
  * the answer then streams into it from the thin server.
  */
 import { jev, place, cosineVec, squareVars, EMB } from "./jev.js";
-import { state, addPage, reindexPage } from "./store.js";
+import { state, addPage, reindexPage, saveDeck } from "./store.js";
 import { streamChat, embed } from "./chat.js";
 import { parse } from "./md.js";
 import { highlight } from "./hl.js";
@@ -110,16 +110,19 @@ export function initDeck({ deck, form, input, onLimit }) {
       deck.appendChild(page);
     });
     alignComposer();
+    saveDeck();
   }
 
   /**
-   * The composer's first character sits flush with the open page's left
-   * edge — computed, not measured, so it lands on the post-animation
-   * value: every page left of the active one is a collapsed strip.
+   * The composer column occupies the same horizontal span as the open
+   * page, so its centered 66ch column lines up with the answer text —
+   * computed, not measured, so it lands on the post-animation value:
+   * every page that isn't open is a collapsed strip.
    */
   function alignComposer() {
     const stripW = parseFloat(getComputedStyle(deck).getPropertyValue("--strip")) || 38;
-    form.style.paddingLeft = state.active * stripW + "px";
+    form.style.paddingLeft = Math.max(0, state.active) * stripW + "px";
+    form.style.paddingRight = Math.max(0, state.pages.length - 1 - state.active) * stripW + "px";
   }
   window.addEventListener("resize", alignComposer);
 
@@ -254,6 +257,7 @@ export function initDeck({ deck, form, input, onLimit }) {
             renderAnswer(i);
           } else if (ev.type === "session") {
             state.sessionId = ev.sessionId;
+            saveDeck();
           } else if (ev.type === "stop" && ev.stopReason !== "end_turn") {
             p.note = "(stopped: " + ev.stopReason + ")";
             renderAnswer(i);
@@ -272,6 +276,7 @@ export function initDeck({ deck, form, input, onLimit }) {
       busy = false;
       if (askBtn) askBtn.disabled = false;
       reindexPage(p); // later questions score against the full answer
+      saveDeck();
       void recolor(p, i);
     }
   }

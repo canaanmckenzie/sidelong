@@ -16,10 +16,15 @@
   </header>
   <main class="deck" id="deck"></main>
   <form class="composer" id="composer">
-    <textarea id="q" rows="1" placeholder="Ask a follow-up, or something new" aria-label="Your question"></textarea>
-    <button id="ask" type="submit">Ask</button>
-    <button id="limits" type="button" aria-expanded="false" aria-label="Usage limits" title="Usage limits">%</button>
-    <div id="limitsPanel" hidden></div>
+    <div class="crow">
+      <textarea id="q" rows="1" placeholder="Ask a follow-up, or something new" aria-label="Your question"></textarea>
+      <button id="ask" type="submit">Ask</button>
+      <button id="deckmenu" type="button" aria-expanded="false" aria-label="Deck options" title="Deck options">⋯</button>
+      <button id="limits" type="button" aria-expanded="false" aria-label="Usage limits" title="Usage limits">%</button>
+      <div id="deckPanel" class="popover" hidden></div>
+      <div id="limitsPanel" class="popover" hidden></div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
   </form>
 </div>
 </body>

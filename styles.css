@@ -139,13 +139,18 @@ body {
 .a a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .a a:hover { color: var(--mute); }
 
-/* composer */
+/* composer — a centered column matching the open page's text column, so
+   the input sits under the answer like the chat interface everyone knows */
 .composer {
-  position: relative;
-  display: flex; align-items: flex-end; gap: 12px;
   padding-block: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  transition: padding-left .35s cubic-bezier(.3,.7,.2,1); /* follows the open page (deck.js sets it) */
+  transition: padding-left .35s cubic-bezier(.3,.7,.2,1), padding-right .35s cubic-bezier(.3,.7,.2,1);
+}
+.crow {
+  position: relative;
+  max-width: 66ch; margin: 0 auto; box-sizing: border-box;
+  padding-inline: clamp(16px, 4vw, 48px); /* mirrors .col, text aligns with text */
+  display: flex; align-items: flex-end; gap: 12px;
 }
 #q {
   flex: 1 1 auto; min-width: 0; resize: none; border: 0; background: transparent; color: var(--fg);
@@ -159,24 +164,31 @@ body {
 }
 #ask:hover { background: var(--fg); color: var(--bg); }
 
-/* the usage glyph and its readout */
-#limits {
+/* the quiet glyphs (usage %, deck ⋯) and their popovers */
+#limits, #deckmenu {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
   background: none; border: 0; color: var(--mute); cursor: pointer; padding: 8px 2px;
 }
-#limits:hover, #limits[aria-expanded="true"] { color: var(--fg); }
-#limits:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
-#limitsPanel {
-  position: absolute; right: 0; bottom: calc(100% + 1px);
+#limits:hover, #deckmenu:hover, #limits[aria-expanded="true"], #deckmenu[aria-expanded="true"] { color: var(--fg); }
+#limits:focus-visible, #deckmenu:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+.popover {
+  position: absolute; right: clamp(16px, 4vw, 48px); bottom: calc(100% + 1px);
   background: var(--bg); border: 1px solid var(--line);
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; color: var(--mute);
   font-variant-numeric: tabular-nums;
   padding: 12px 14px; min-width: 250px; box-sizing: border-box;
 }
-#limitsPanel .row { display: flex; justify-content: space-between; gap: 16px; }
-#limitsPanel .row + .row { margin-top: 6px; }
-#limitsPanel .k { text-transform: uppercase; }
-#limitsPanel .v { color: var(--fg); }
+.popover .row { display: flex; justify-content: space-between; gap: 16px; }
+.popover .row + .row { margin-top: 6px; }
+.popover .k { text-transform: uppercase; }
+.popover .v { color: var(--fg); }
+#deckPanel { min-width: 180px; }
+#deckPanel button {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  color: var(--fg); font: inherit; letter-spacing: inherit; text-transform: uppercase;
+  cursor: pointer; padding: 4px 0;
+}
+#deckPanel button:hover { color: var(--mute); }
 
 @media (max-width: 600px) {
   :root { --strip: 28px; }
