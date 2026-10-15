@@ -1,14 +1,29 @@
 // @ts-check
 /**
  * jev — the classifier and the OKLCH painter. Pure functions only: no DOM,
- * no state. Ported verbatim from the prototype, with one addition: an empty
- * deck gets a deterministic pale hue instead of NaN (the prototype always
- * booted with seeds, so it never hit that case; persistence will).
- * Milestone 4 replaces vec() with an embedding call and keeps everything else.
+ * no network, no state. The placement logic (centroid, widest-arc rule,
+ * jitter, confidence) lives once in place(); what varies by vector space
+ * is the similarity numbers and the calibration fed into it. jev() is the
+ * bag-of-words wrapper — instant and offline, it paints the square the
+ * frame the question is asked; the deck then re-places from real
+ * embeddings when they arrive (deck.js).
  */
 
 /** @typedef {import("./types.js").Page} Page */
 /** @typedef {import("./types.js").JevResult} JevResult */
+
+/** @typedef {{ k: number, floor: number, drop: number }} Calibration */
+
+/** Bag-of-words: a 0.2 cosine is a strong match. */
+export const BOW = { k: 5, floor: 0.06, drop: 0.03 };
+/**
+ * nomic-embed-text, measured over the fixtures (tools/calibrate.js,
+ * Oct 2026): related questions score 0.51–0.59 against their pages,
+ * unrelated tops out at 0.41. Floor splits that gap; k puts a 0.51
+ * follow-up at ≥0.8 confidence; drop keeps unrelated pages out of the
+ * hue centroid. Re-run the script if EMBED_MODEL changes.
+ */
+export const EMB = { k: 1.5, floor: 0.46, drop: 0.42 };
 
 const STOP = new Set(("a an the and or but if then so of to in on at for from by with without into over under about as is are was were be been being do does did have has had it its this that these those i me my we our you your they them their he she his her what which who whom whose why how when where would should could can will shall may might must also just very really not no yes than too any some all each every both either neither one two more most much many few less least own same other another such only there here up down out off again further once ever never always".split(" ")));
 
@@ -34,6 +49,13 @@ export function cosine(a, b) {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
 
+/** Cosine over embedding vectors. @param {number[]} a @param {number[]} b */
+export function cosineVec(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}
+
 /** @param {string} s @returns {number} 0..1, deterministic */
 export function hash(s) {
   let h = 2166136261;
@@ -42,24 +64,24 @@ export function hash(s) {
 }
 
 /**
- * Classify a question against the deck: hue, confidence, nearest page.
- * Runs the moment a question is submitted, before the answer exists.
- * @param {string} question
+ * Place a question on the hue circle given its similarity to each page.
+ * The vector space doesn't matter — only the sims and the calibration do.
+ * @param {string} question  used only for the deterministic jitter
+ * @param {number[]} sims    similarity to pages[i], same order
  * @param {Page[]} pages
+ * @param {Calibration} cal
  * @returns {JevResult}
  */
-export function jev(question, pages) {
+export function place(question, sims, pages, cal) {
   const jitter = (hash(question) - 0.5) * 8;       // siblings should not land on the identical hue
   if (pages.length === 0) {
     // fresh deck: nothing to be similar to, so a deterministic pale start
     return { ang: (hash("seed:" + question) * 360 + jitter + 360) % 360, r: 0.25, near: null, sim: 0, novel: true };
   }
-  const qv = vec(question);
-  const sims = pages.map(p => cosine(qv, p.vec ?? new Map()));
   let best = -1, bestSim = 0;
   sims.forEach((s, i) => { if (s > bestSim) { bestSim = s; best = i; } });
-  const conf = Math.min(1, bestSim * 5);           // crude calibration: 0.2 cosine on bag-of-words is a strong match
-  if (bestSim < 0.06 || best < 0) {
+  const conf = Math.min(1, bestSim * cal.k);
+  if (bestSim < cal.floor || best < 0) {
     // new topic: take the widest empty arc on the hue circle, sit in the middle of it, pale
     const angs = pages.map(p => p.ang).sort((x, y) => x - y);
     let gapStart = angs[angs.length - 1], gapSize = 360 - gapStart + angs[0];
@@ -68,12 +90,26 @@ export function jev(question, pages) {
   }
   let x = 0, y = 0, w = 0;
   sims.forEach((s, i) => {
-    if (s < 0.03) return;
+    if (s < cal.drop) return;
     const k = s * s, t = pages[i].ang * Math.PI / 180;
     x += k * pages[i].r * Math.cos(t); y += k * pages[i].r * Math.sin(t); w += k;
   });
   const ang = (Math.atan2(y / w, x / w) * 180 / Math.PI + jitter + 360) % 360;
   return { ang, r: 0.3 + 0.7 * conf, near: best, sim: bestSim, novel: false };
+}
+
+/**
+ * Classify a question against the deck: hue, confidence, nearest page.
+ * Runs the moment a question is submitted, before the answer exists —
+ * bag-of-words, so it costs nothing and works offline.
+ * @param {string} question
+ * @param {Page[]} pages
+ * @returns {JevResult}
+ */
+export function jev(question, pages) {
+  const qv = vec(question);
+  const sims = pages.map(p => cosine(qv, p.vec ?? new Map()));
+  return place(question, sims, pages, BOW);
 }
 
 /**

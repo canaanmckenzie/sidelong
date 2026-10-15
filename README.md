@@ -46,7 +46,9 @@ dependencies. Types live in JSDoc comments checked by `// @ts-check` — see
 - `tools/serve.js` — the dev server
 - `test/jev.test.js`, `test/sse.test.js` — classifier and stream-parsing tests
 
-Milestone status (see HANDOFF.md): **1–3 done** — scaffold, the thin
-server, and the wired chat (run both `npm run dev` and `npm run server`,
-plus `ollama serve`, and ask away). Next: the real classifier via
-`/embed` (milestone 4).
+Milestone status (see HANDOFF.md): **1–4 done** — scaffold, the thin
+server, the wired chat, and the real classifier (squares paint instantly
+from bag-of-words, then sharpen from local embeddings ~30 ms later;
+offline, the word-match placement stands and the readout says so). Run
+`npm run dev`, `npm run server`, and `ollama serve`, then ask away.
+Next: re-color after the answer (milestone 5).

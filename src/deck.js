@@ -4,9 +4,9 @@
  * created and opened, square already painted, before the first token;
  * the answer then streams into it from the thin server.
  */
-import { jev, squareVars } from "./jev.js";
+import { jev, place, cosineVec, squareVars, EMB } from "./jev.js";
 import { state, addPage, reindexPage } from "./store.js";
-import { streamChat } from "./chat.js";
+import { streamChat, embed } from "./chat.js";
 
 /** @typedef {import("./types.js").Page} Page */
 
@@ -34,8 +34,9 @@ export function initDeck({ deck, count, form, input, onLimit }) {
   function readout(p, i) {
     if (i === 0 && p.near === null) return "first page · hue " + Math.round(p.ang) + "°";
     const nearest = p.near === null || p.sim === null ? "" : "nearest <b>#" + (p.near + 1) + "</b> " + p.sim.toFixed(2);
-    const verdict = p.novel || (p.sim !== null && p.sim < 0.06) ? "new topic" : p.r > 0.8 ? "follow-up" : "related";
-    return verdict + " · " + nearest + " · hue " + Math.round(p.ang) + "° · confidence " + Math.round(p.r * 100) + "%";
+    const verdict = p.novel ? "new topic" : p.r > 0.8 ? "follow-up" : "related";
+    return verdict + " · " + nearest + " · hue " + Math.round(p.ang) + "° · confidence " + Math.round(p.r * 100) + "%"
+      + (p.offline ? " · offline" : "");
   }
 
   function render() {
@@ -108,10 +109,35 @@ export function initDeck({ deck, count, form, input, onLimit }) {
   const askBtn = /** @type {HTMLButtonElement | null} */ (form.querySelector("#ask"));
   let busy = false;
 
+  /**
+   * Re-place the square from real embeddings; bag-of-words already painted
+   * it, so this only sharpens hue and confidence (the square's color
+   * animates, the page never moves). Earlier pages missing an embedding —
+   * born offline, or seeds — get theirs in the same request.
+   * @param {Page} p @param {number} i
+   */
+  async function refine(p, i) {
+    try {
+      const earlier = state.pages.slice(0, i);
+      const missing = earlier.filter(pg => !pg.evec);
+      const vectors = await embed([p.q, ...missing.map(pg => pg.q + " " + pg.a.join(" "))]);
+      missing.forEach((pg, j) => { pg.evec = vectors[j + 1]; });
+      const sims = earlier.map(pg => (pg.evec ? cosineVec(vectors[0], pg.evec) : 0));
+      const r = place(p.q, sims, earlier, EMB);
+      p.ang = r.ang; p.r = r.r; p.near = r.near; p.sim = r.sim; p.novel = r.novel;
+      p.evec = vectors[0]; // question alone for now; question+answer after the stream
+      render();
+    } catch {
+      p.offline = true; // the readout says the square stands on word-match
+      render();
+    }
+  }
+
   /** @param {string} text */
   async function ask(text) {
     // Paint first: the square and the question appear the moment Enter
-    // lands, before the model has said anything.
+    // lands, placed by bag-of-words — instant and offline. The embedding
+    // verdict follows a beat later and repaints without moving anything.
     const r = jev(text, state.pages);
     /** @type {Page} */
     const p = { q: text, a: [], ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel };
@@ -119,6 +145,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     const i = state.pages.length - 1;
     state.active = i;
     render();
+    void refine(p, i); // runs while the answer streams
 
     busy = true;
     if (askBtn) askBtn.disabled = true;
@@ -151,6 +178,8 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       busy = false;
       if (askBtn) askBtn.disabled = false;
       reindexPage(p); // later questions score against the full answer
+      // upgrade the embedding the same way (re-coloring from it is milestone 5)
+      void embed([p.q + " " + p.a.join(" ")]).then(v => { p.evec = v[0]; }).catch(() => {});
     }
   }
 

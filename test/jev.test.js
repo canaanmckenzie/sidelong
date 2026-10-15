@@ -7,7 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jev, vec, squareVars } from "../src/jev.js";
+import { jev, place, vec, squareVars, EMB } from "../src/jev.js";
 import { SEED } from "../src/fixtures.js";
 
 /** @typedef {import("../src/types.js").Page} Page */
@@ -45,14 +45,40 @@ test("an unrelated question is a new topic and lands pale", () => {
   assert.equal(sourdough.r, 0.25);
 });
 
-// TODO(milestone 4): with embeddings, the VLAN question should score near
-// page 1 (hand-set sim 0.31, hue 196°). Bag-of-words shares no vocabulary
-// with the Smart Queues page, so today it must read as a new topic. When
-// the embedding model lands, flip this to assert near === 0 and hue ≈ 196.
-test("known limitation: bag-of-words calls the VLAN question a new topic", () => {
+// The offline fallback keeps this documented limitation: bag-of-words
+// shares no vocabulary between the VLAN question and the Smart Queues
+// page, so without the server the square reads as a new topic. The
+// embedding tests below are the other half of the story.
+test("offline fallback: bag-of-words calls the VLAN question a new topic", () => {
   const vlan = run(2);
   assert.equal(vlan.novel, true);
   assert.equal(vlan.sim, 0);
+});
+
+// Embedding calibration, pinned against similarities measured with
+// nomic-embed-text over these fixtures (tools/calibrate.js, Oct 2026):
+// related questions scored 0.51–0.59, unrelated topped out at 0.41.
+// If EMBED_MODEL changes, re-run the script and refit EMB + these sims.
+test("embeddings: the CoDel follow-up clears 80% confidence", () => {
+  const r = place(SEED[1].q, [0.511], fixtures.slice(0, 1), EMB);
+  assert.equal(r.novel, false);
+  assert.equal(r.near, 0);
+  assert.ok(r.r >= 0.8, `confidence ${r.r.toFixed(2)} should be ≥ 0.8`);
+});
+
+test("embeddings: sourdough stays below the floor and lands pale", () => {
+  const r = place(SEED[3].q, [0.407, 0.382, 0.344], fixtures.slice(0, 3), EMB);
+  assert.equal(r.novel, true);
+  assert.equal(r.r, 0.25);
+});
+
+test("embeddings: the VLAN question lands beside Smart Queues (the flipped TODO)", () => {
+  // The hand-set 196° in the fixture was narrative; centroid placement
+  // puts a page next to its one qualifying neighbor, so ≈222° is correct.
+  const r = place(SEED[2].q, [0.506, 0.387], fixtures.slice(0, 2), EMB);
+  assert.equal(r.novel, false);
+  assert.equal(r.near, 0);
+  assert.ok(angDist(r.ang, SEED[0].ang) <= 10, `got ${r.ang.toFixed(1)}°, want ${SEED[0].ang}° ±10`);
 });
 
 test("a new topic takes the midpoint of the widest empty arc", () => {

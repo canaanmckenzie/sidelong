@@ -67,6 +67,7 @@ body {
   position: absolute; top: 12px; left: 12px; width: 12px; height: 12px;
   background: hsl(var(--sq-h) var(--sq-s) 50%);
   background: oklch(var(--sq-l) var(--sq-c) var(--sq-h));
+  transition: background-color .4s; /* the embedding verdict repaints, never moves */
 }
 .page.active .sq { top: 20px; left: 12px; }
 
@@ -146,4 +147,4 @@ body {
   .q { font-size: 1.15rem; }
   .meta .hint { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .page { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .page, .sq { transition: none; } }

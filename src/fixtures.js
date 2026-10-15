@@ -33,7 +33,7 @@ export const SEED = [
       "That acetone smell means the starter is hungry. When the yeast run out of sugars they shift metabolism and the culture starts producing ethyl acetate and other esters, which read to the nose as nail-polish remover or overripe fruit. A grey liquid on top, hooch, usually shows up at the same time.",
       "It is not spoiled. Pour off the hooch or stir it back in, discard most of the starter, and feed it at a higher ratio than usual, something like 1:2:2 by weight. Two or three feeds on schedule and the smell goes back to sour and yeasty. If it is happening every day, feed more often or keep it a little cooler. Dough mixed with a starter in this state will still rise, but it proofs slowly and bakes flat, so wait a feed or two before baking."
     ],
-    ang: 42, r: 0.88, near: 2, sim: 0.04 },
+    ang: 42, r: 0.88, near: 2, sim: 0.04, novel: true },
   { q: "On symmetric fiber, should I lower the fq_codel target below 5 ms?",
     a: [
       "Probably not. The 5 ms target and 100 ms interval were chosen to work across typical internet RTTs; the interval needs to be longer than the round trip for a flow to react to a drop, and the target is set to be a small fraction of that. On a fast, low-latency link the defaults still behave well, and the gains from shaving the target are measured in fractions of a millisecond.",

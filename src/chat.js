@@ -22,6 +22,21 @@ export async function serverUp() {
 }
 
 /**
+ * Embed texts via the thin server (local Ollama behind it).
+ * @param {string[]} texts
+ * @returns {Promise<number[][]>} one vector per text, same order
+ */
+export async function embed(texts) {
+  const res = await fetch(SERVER + "/embed", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ texts }),
+  });
+  if (!res.ok) throw new Error("embed failed: " + res.status);
+  return (await res.json()).vectors;
+}
+
+/**
  * Stream one answer. Calls onEvent for each event as it arrives and
  * resolves when the stream closes; throws on network failure or a
  * non-2xx response (the caller decides what the page should say).
