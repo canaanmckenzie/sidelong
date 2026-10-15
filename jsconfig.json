@@ -10,5 +10,5 @@
     "lib": ["es2022", "dom", "dom.iterable"],
     "types": ["node"]
   },
-  "include": ["src", "test", "tools"]
+  "include": ["src", "test", "tools", "server"]
 }
