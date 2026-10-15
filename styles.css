@@ -43,7 +43,6 @@ body {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   padding-block: 14px 10px;
 }
-.brand { font-weight: 500; }
 .meta { color: var(--mute); margin-left: auto; }
 .meta kbd { font: inherit; }
 #theme {
@@ -58,20 +57,19 @@ body {
 .deck { display: flex; min-height: 0; align-items: stretch; }
 .page {
   position: relative; min-width: 0; min-height: 0;
-  flex: 0 1 var(--strip); border-left: 1px solid var(--line);
+  flex: 0 1 var(--strip); /* no border: the color spine is the only separator */
   transition: flex-grow .35s cubic-bezier(.3,.7,.2,1);
 }
-.page:first-child { border-left: 0; }
 .page.active { flex: 1 0 var(--strip); }
 .sq {
-  position: absolute; top: 20px; left: 12px; width: 12px; height: 12px;
+  position: absolute; top: 17px; left: 12px; width: 12px; height: 12px;
   background: hsl(var(--sq-h) var(--sq-s) 50%);
   background: oklch(var(--sq-l) var(--sq-c) var(--sq-h));
   transition: background-color .4s; /* the embedding verdict repaints, never moves */
   z-index: 1; pointer-events: none; /* sits above the strip and its hover tint, clicks pass through */
 }
-/* collapsed pages carry their color as a thin spine flush against the line on their right */
-.page:not(.active) .sq { top: 0; bottom: 0; left: auto; right: 0; width: 4px; height: auto; }
+/* collapsed pages carry their color as a thin spine on their right edge — the deck's only separator */
+.page:not(.active) .sq { top: 0; bottom: 0; left: auto; right: 0; width: 3px; height: auto; }
 
 /* collapsed view */
 .strip {
@@ -90,12 +88,20 @@ body {
 .strip .n { font-weight: 500; color: var(--fg); margin-inline-end: 10px; }
 .page.active .strip { display: none; }
 
+/* crowded deck: once a strip is too narrow to read, it's just color */
+.page:not(.active) { container-type: inline-size; }
+.strip, .strip .n { transition: color .2s; }
+@container (max-width: 23px) {
+  .strip, .strip .n { color: transparent; }
+  .strip:hover { background: var(--faint); }
+}
+
 /* open view */
 .full { display: none; height: 100%; overflow-y: auto; overflow-x: hidden; }
 .page.active .full { display: block; }
 .col {
   max-width: 66ch; margin: 0 auto; box-sizing: border-box;
-  padding: 40px clamp(16px, 4vw, 48px) 48px;
+  padding: 17px clamp(16px, 4vw, 48px) 48px; /* question head sits a hair below the strip heads */
 }
 .q {
   font-weight: 500; font-size: 1.35rem; line-height: 1.3; margin: 0 0 6px; text-wrap: balance;
@@ -133,6 +139,7 @@ body {
   display: flex; align-items: flex-end; gap: 12px;
   padding-block: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transition: padding-left .35s cubic-bezier(.3,.7,.2,1); /* follows the open page (deck.js sets it) */
 }
 #q {
   flex: 1 1 auto; min-width: 0; resize: none; border: 0; background: transparent; color: var(--fg);
@@ -171,4 +178,4 @@ body {
   .q { font-size: 1.15rem; }
   .meta .hint { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .page, .sq { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .page, .sq, .composer { transition: none; } }

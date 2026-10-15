@@ -21,14 +21,15 @@ import { SERVER } from "./chat.js";
 const KEY = "sidelong.limits";
 
 /**
- * "21:14" if the moment is within 24 h of now, else "fri 21:14".
+ * "9:14 pm" if the moment is within 24 h of now, else "fri 9:14 pm".
  * @param {number} atSeconds unix seconds
  * @param {number} now unix milliseconds
  * @returns {string}
  */
 export function fmtTime(atSeconds, now) {
   const d = new Date(atSeconds * 1000);
-  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const h = d.getHours();
+  const hm = (h % 12 || 12) + ":" + String(d.getMinutes()).padStart(2, "0") + " " + (h < 12 ? "am" : "pm");
   const far = Math.abs(d.getTime() - now) >= 24 * 3600 * 1000;
   return far ? ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][d.getDay()] + " " + hm : hm;
 }

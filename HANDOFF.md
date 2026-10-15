@@ -13,12 +13,12 @@ This document is the handoff for building it. It covers the interaction model, t
 The unit is a page: one question and its answer. A session is an ordered deck of pages. Exactly one page is open at a time.
 
 - **Deck.** A horizontal row filling the space between the header and the composer. Pages are flex items. The open page takes all remaining width; every other page collapses to a strip 38 px wide (28 px on phones). The width change animates over about 350 ms; it is disabled under `prefers-reduced-motion`.
-- **Strips.** A collapsed page shows its topic square at the top, its page number, then its question running top-to-bottom in vertical text, clipped with an ellipsis. Hovering a strip tints it; clicking opens it. The full question is in the strip's `title` and `aria-label`.
+- **Strips.** (Amended in the Oct 14 aesthetic pass with the user.) A collapsed page carries its topic color as a thin 3 px spine running the full height of its right edge — the deck's only separator; there are no border rules between pages. The strip shows its page number, then its question running top-to-bottom in vertical text, clipped with an ellipsis. When the deck is crowded enough that a strip falls below ~23 px, its text fades out and only the color remains (container query). Hovering a strip tints it; clicking opens it. The full question is in the strip's `title` and `aria-label`.
 - **Ordering.** Newest page on the right. When a new question is asked, the current open page collapses leftward and the new page opens in its place. When the user opens an older page, pages on both sides collapse; nothing is ever reordered.
 - **Navigation.** Left and right arrow keys move the open page when focus is not in the composer. Clicking any strip opens it. Horizontal trackpad scroll over the deck should also step pages (not in the prototype).
 - **Open page.** The question as the heading, a one-line classifier readout beneath it in monospace, then the answer in a 66-character column centered in the page. The page scrolls vertically only if the answer is long; the deck itself never scrolls vertically.
-- **Composer.** A single textarea pinned to the bottom, growing to at most 40% of the viewport. Enter submits; Shift+Enter inserts a newline. Submitting creates and opens the new page immediately, before the model responds, so the square and the question appear at once and the answer streams into the page.
-- **Header.** Product name on the left, page count and the arrow-key hint in the middle, the theme toggle on the right. Nothing else.
+- **Composer.** A single textarea pinned to the bottom, growing to at most 40% of the viewport, its left edge flush with the open page's left edge (it follows the deck, animated). Enter submits; Shift+Enter inserts a newline. Submitting creates and opens the new page immediately, before the model responds, so the square and the question appear at once and the answer streams into the page. A small `%` glyph in its right corner opens the usage readout.
+- **Header.** Page count and the arrow-key hint on the right, then the theme toggle. No product name, nothing else.
 
 What this deliberately leaves out: branching (a follow-up to an old page still appends to the end of the deck), multi-page selection, and any sidebar. Keep it to one row of pages.
 
@@ -37,9 +37,9 @@ Two themes, one toggle, no other color anywhere except the topic squares. The pa
 
 Typography: Newsreader (serif, optical size axis) for questions and answers at 17 px with 1.55 line height; IBM Plex Mono at 11 px, uppercase with 0.06 em tracking, for the header, strips, readout and buttons. Questions are Newsreader 500 at 1.35 rem. Keep running text at 66 characters.
 
-The topic square is 12 × 12 px, no border, no radius, 12 px from the top-left corner of its page (20 px from the top on the open page so it clears the header line). Its color is `oklch(var(--sq-l) var(--sq-c) var(--sq-h))` with an `hsl()` fallback declared first for browsers without OKLCH. Hue and chroma come from the classifier (next section); lightness comes from the theme so squares stay legible on both backgrounds.
+On the open page the topic square is 12 × 12 px, no border, no radius, 12 px from the left and 17 px from the top (level with the question head); on collapsed pages the same color renders as the 3 px right-edge spine instead. Its color is `oklch(var(--sq-l) var(--sq-c) var(--sq-h))` with an `hsl()` fallback declared first for browsers without OKLCH. Hue and chroma come from the classifier (next section); lightness comes from the theme so squares stay legible on both backgrounds.
 
-Rules: 1 px solid `--line` on the left edge of every page but the first, under the header, above the composer. No shadows, no card styling, no icons. Focus rings are 2 px solid `--fg` with 3 px offset. Side gutter is `max(16px, env(safe-area-inset-*))`; the app is sized with `height: 100%` on `html` and `body`, never `100vh`.
+Rules: none (amended Oct 14 — the page borders and the header/composer rules were removed with the user; the color spines are the only separators, and whitespace does the rest). No shadows, no card styling, no icons. Focus rings are 2 px solid `--fg` with 3 px offset. Side gutter is `max(16px, env(safe-area-inset-*))`; the app is sized with `height: 100%` on `html` and `body`, never `100vh`.
 
 ## Topic coloring: the jev hook
 

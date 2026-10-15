@@ -6,11 +6,15 @@ import { fmtTime, rows } from "../src/limits.js";
 // A fixed "now": 2026-10-14 20:00 local time.
 const NOW = new Date(2026, 9, 14, 20, 0).getTime();
 
-test("fmtTime shows bare time within 24h, weekday beyond", () => {
+test("fmtTime shows am/pm time within 24h, weekday beyond", () => {
   const tonight = new Date(2026, 9, 14, 21, 14).getTime() / 1000;
-  assert.equal(fmtTime(tonight, NOW), "21:14");
+  assert.equal(fmtTime(tonight, NOW), "9:14 pm");
   const saturday = new Date(2026, 9, 17, 18, 0).getTime() / 1000;
-  assert.equal(fmtTime(saturday, NOW), "sat 18:00");
+  assert.equal(fmtTime(saturday, NOW), "sat 6:00 pm");
+  const morning = new Date(2026, 9, 14, 20, 5).getTime() / 1000; // minutes pad, noon/midnight wrap
+  assert.equal(fmtTime(morning, NOW), "8:05 pm");
+  const midnight = new Date(2026, 9, 15, 0, 30).getTime() / 1000;
+  assert.equal(fmtTime(midnight, NOW), "12:30 am");
 });
 
 test("rows with no data says so", () => {
@@ -33,10 +37,10 @@ test("rows formats both windows, flags a hit limit, notes freshness", () => {
     NOW,
   );
   assert.deepEqual(r, [
-    ["5-hour", "12% · resets 21:14"],
-    ["7-day", "9% · resets fri 09:00"],
+    ["5-hour", "12% · resets 9:14 pm"],
+    ["7-day", "9% · resets fri 9:00 am"],
     ["status", "limit reached"],
-    ["seen", "19:59"],
+    ["seen", "7:59 pm"],
   ]);
 });
 

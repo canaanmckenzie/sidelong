@@ -93,7 +93,19 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       deck.appendChild(page);
     });
     count.textContent = state.pages.length + (state.pages.length === 1 ? " page" : " pages");
+    alignComposer();
   }
+
+  /**
+   * The composer's first character sits flush with the open page's left
+   * edge — computed, not measured, so it lands on the post-animation
+   * value: every page left of the active one is a collapsed strip.
+   */
+  function alignComposer() {
+    const stripW = parseFloat(getComputedStyle(deck).getPropertyValue("--strip")) || 38;
+    form.style.paddingLeft = state.active * stripW + "px";
+  }
+  window.addEventListener("resize", alignComposer);
 
   /** The answer as rendered markdown plus the status note, rebuilt in place. @param {Element} a @param {Page} p */
   function fillAnswer(a, p) {
