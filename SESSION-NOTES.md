@@ -43,7 +43,7 @@ Milestones 1–3 of HANDOFF.md are done and verified, plus the usage glyph:
    `claude -p` errors at a limit rather than waiting; deck survives,
    resubmit after reset. Composer disable/auto-retry on limit = possible
    later nicety, not committed to.
-5. Git identity set repo-local: `glitch <canaanmckenzie5@gmail.com>`.
+5. Git identity is set repo-local (it was unset machine-wide).
 6. HANDOFF.md amended for all of this; repo copy canonical, Desktop
    copy synced.
 
@@ -144,8 +144,7 @@ query already handles legibility).
   auto-discovers `test/`.
 - Firefox here is a snap: headless screenshots need profile + output
   under `$HOME`, not `/tmp` (then move the file out and clean up).
-- This machine (hob) is a Proxmox guest; see memory `vm-environment`.
-- Git identity was unset machine-wide; now set repo-locally only.
+- The dev box is a VM; display quirks are usually viewer-side.
 - Ollama's `ollama.com/download/...tgz` URL 404s; the real asset is
   `ollama-linux-amd64.tar.zst` on GitHub releases.
 - Stray dev servers on :8787 bite — `fuser -k 8787/tcp` before tests.

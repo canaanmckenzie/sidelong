@@ -79,7 +79,7 @@ r = 0.3 + 0.7 \cdot \min\!\left(1,\; k \cdot \max_i \operatorname{sim}_i\right),
 
 **7. Re-color.** Once the answer has streamed, re-embed question plus answer and re-run steps 2 to 4. The answer text is a far better signal than a seven-word question. Animate the square's color over about 400 ms; never move the page.
 
-The readout under each question exposes the inference: `follow-up · nearest #2 0.64 · hue 229° · confidence 96%`. Keep it; it is how the user learns to trust the squares, and how you debug them.
+The readout under each question exposes the inference, trimmed to what a reader needs (amended Oct 14 with the user): visibly just the verdict and, for matches, the confidence — `follow-up · 90%`, or `new topic → follow-up · 84%` after a re-color changed the verdict. The raw numbers (`nearest #2 · cosine 0.58 · hue 226°`) moved to the line's tooltip: still there for learning to trust the squares and for debugging them, without reading as noise.
 
 ## Open decisions
 

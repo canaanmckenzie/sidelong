@@ -47,13 +47,22 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     for (const [k, v] of Object.entries(squareVars(p))) el.style.setProperty(k, v);
   }
 
-  /** The classifier readout under the question. @param {Page} p @param {number} i */
+  /**
+   * The classifier readout under the question: just the verdict, plus
+   * confidence when there is a match for it to be confidence in. The raw
+   * numbers (nearest page, cosine, hue) live in the tooltip for anyone
+   * debugging the squares.
+   * @param {Page} p @param {number} i
+   * @returns {{ text: string, detail: string }}
+   */
   function readout(p, i) {
-    if (i === 0 && p.near === null) return "first page · hue " + Math.round(p.ang) + "°";
-    const nearest = p.near === null || p.sim === null ? "" : "nearest <b>#" + (p.near + 1) + "</b> " + p.sim.toFixed(2);
-    const verdict = (p.was ? p.was + " → " : "") + verdictOf(p);
-    return verdict + " · " + nearest + " · hue " + Math.round(p.ang) + "° · confidence " + Math.round(p.r * 100) + "%"
-      + (p.offline ? " · offline" : "");
+    const detail =
+      (p.near !== null && p.sim !== null ? "nearest #" + (p.near + 1) + " · cosine " + p.sim.toFixed(2) + " · " : "") +
+      "hue " + Math.round(p.ang) + "°";
+    if (i === 0 && p.near === null) return { text: "first page", detail };
+    const pct = p.novel ? "" : " · " + Math.round(p.r * 100) + "%";
+    const text = (p.was ? p.was + " → " : "") + verdictOf(p) + pct + (p.offline ? " · offline" : "");
+    return { text, detail };
   }
 
   function render() {
@@ -87,7 +96,9 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       h.textContent = p.q;
       const j = document.createElement("p");
       j.className = "jev";
-      j.innerHTML = readout(p, i); // numbers and page indexes only, never user text
+      const ro = readout(p, i);
+      j.textContent = ro.text;
+      j.title = ro.detail;
       const a = document.createElement("div");
       a.className = "a";
       fillAnswer(a, p);

@@ -24,8 +24,15 @@ and no accounts beyond the ones you already have.
   logged in (`claude` on your PATH). The server runs it headless
   (`claude -p`); usage counts against your subscription's normal limits,
   which you can check from the `%` glyph in the composer.
-- **[Ollama](https://ollama.com)** with the embedding model:
-  `ollama pull nomic-embed-text` (~270 MB; CPU is plenty).
+- **[Ollama](https://ollama.com)** for embeddings, which run locally and
+  free. Install it (macOS/Windows: the app from ollama.com/download;
+  Linux: `curl -fsSL https://ollama.com/install.sh | sh`, or unpack the
+  release tarball anywhere and put `bin/ollama` on your PATH — no root
+  needed), then pull the model:
+
+  ```
+  ollama pull nomic-embed-text   # ~270 MB; CPU is plenty
+  ```
 
 ## Running it
 
@@ -41,16 +48,38 @@ npm run server     # the thin server  → localhost:8787
 npm run dev        # the app          → localhost:5173
 ```
 
-Open http://localhost:5173 and ask something. The page opens the moment
-you press Enter, already colored by a word-match classifier; ~30 ms
-later the real embedding verdict settles the color, and after the answer
-streams in, the page is re-scored against question *plus* answer — if
-the verdict changes, the readout under the question says so
-(`new topic → follow-up`). Arrow keys move between pages when the
-composer isn't focused.
+Open http://localhost:5173 and ask something. Arrow keys move between
+pages when the composer isn't focused; clicking any strip opens it.
 
-If the server or Ollama is down, asking still paints squares from the
+If the server or Ollama is down, asking still paints colors from an
 offline word-match fallback and the readout appends `offline`.
+
+## How to read a page
+
+The color is the point. Every page carries one mark — a square on the
+open page, a thin spine on collapsed strips — and its **hue is the
+topic**: a new question is placed on the color wheel near the pages it
+resembles, so follow-ups inherit their thread's color and an unrelated
+question lands in the emptiest part of the wheel. **Saturation is
+confidence**: a vivid mark means the classifier was sure of the match, a
+pale one means a fresh or uncertain topic. Scanning the strips by color
+tells you where every conversation thread lives without reading a word.
+
+The placement happens three times, each with better information. The
+instant you press Enter, a word-match classifier colors the page so it
+never appears blank. About 30 ms later the real embedding of your
+question settles the color (a quick cross-fade — the page never moves).
+And once the answer has streamed in, the page is re-scored against the
+question *plus* the answer, which is a far better signal than a
+seven-word question.
+
+The small line under each question is the classifier owning up to its
+verdict: `follow-up · 90%` — what it decided, and how confident it was.
+`new topic` means nothing scored above the similarity floor (no
+percentage, since there's no match to be confident in). If the
+post-answer re-score changed its mind, the line keeps the history:
+`new topic → follow-up · 84%`. Hover the line for the raw numbers
+(nearest page, cosine similarity, hue) if you want to see the gears.
 
 ### Configuration (environment, all optional)
 
@@ -95,3 +124,7 @@ original one-file prototype.
 Milestone status (see HANDOFF.md): **1–5 done** — scaffold, server,
 wired chat, real classifier, re-color. Next: persistence (milestone 6:
 IndexedDB, reload restores the deck) and polish (milestone 7).
+
+## License
+
+[MIT](LICENSE)

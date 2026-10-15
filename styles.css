@@ -109,8 +109,8 @@ body {
 .jev {
   font-family: var(--mono); font-size: 11px; color: var(--mute); letter-spacing: 0.02em;
   margin: 0 0 28px; font-variant-numeric: tabular-nums;
+  cursor: help; width: fit-content; /* the raw classifier numbers are in the tooltip */
 }
-.jev b { font-weight: 500; color: var(--fg); }
 .a p { margin: 0 0 1em; }
 .a p:last-child { margin-bottom: 0; }
 .a .note { color: var(--mute); font-style: italic; }
