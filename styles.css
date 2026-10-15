@@ -41,7 +41,7 @@ body {
 .bar {
   display: flex; align-items: center; gap: 16px;
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-  padding-block: 12px; border-bottom: 1px solid var(--line);
+  padding-block: 14px 10px;
 }
 .brand { font-weight: 500; }
 .meta { color: var(--mute); margin-left: auto; }
@@ -64,12 +64,14 @@ body {
 .page:first-child { border-left: 0; }
 .page.active { flex: 1 0 var(--strip); }
 .sq {
-  position: absolute; top: 12px; left: 12px; width: 12px; height: 12px;
+  position: absolute; top: 20px; left: 12px; width: 12px; height: 12px;
   background: hsl(var(--sq-h) var(--sq-s) 50%);
   background: oklch(var(--sq-l) var(--sq-c) var(--sq-h));
   transition: background-color .4s; /* the embedding verdict repaints, never moves */
+  z-index: 1; pointer-events: none; /* sits above the strip and its hover tint, clicks pass through */
 }
-.page.active .sq { top: 20px; left: 12px; }
+/* collapsed pages carry their color as a thin spine flush against the line on their right */
+.page:not(.active) .sq { top: 0; bottom: 0; left: auto; right: 0; width: 4px; height: auto; }
 
 /* collapsed view */
 .strip {
@@ -78,10 +80,14 @@ body {
   writing-mode: vertical-rl; text-orientation: mixed;
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding-block: 36px 16px; box-sizing: border-box; text-align: left;
+  /* vertical-rl: inline axis runs down the strip, block axis runs right-to-left,
+     so the top/bottom gaps are padding-INLINE and the horizontal centering is
+     padding-BLOCK (start = from the right edge, clearing the color spine) */
+  padding-inline: 14px 16px; padding-block: 13px 6px;
+  box-sizing: border-box; text-align: left;
 }
 .strip:hover { background: var(--faint); color: var(--fg); }
-.strip .n { font-weight: 500; color: var(--fg); margin-block-end: 10px; }
+.strip .n { font-weight: 500; color: var(--fg); margin-inline-end: 10px; }
 .page.active .strip { display: none; }
 
 /* open view */
@@ -125,7 +131,7 @@ body {
 .composer {
   position: relative;
   display: flex; align-items: flex-end; gap: 12px;
-  border-top: 1px solid var(--line); padding-block: 12px;
+  padding-block: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 #q {
@@ -161,7 +167,7 @@ body {
 
 @media (max-width: 600px) {
   :root { --strip: 28px; }
-  .strip { font-size: 10px; }
+  .strip { font-size: 10px; padding-block: 8px 4px; }
   .q { font-size: 1.15rem; }
   .meta .hint { display: none; }
 }
