@@ -12,6 +12,7 @@
  * @property {number | null} sim      cosine similarity to that page
  * @property {boolean} [novel]        true when the page opened a new topic
  * @property {boolean} [live]         true for pages asked this session
+ * @property {string} [note]          status line under the answer (errors, early stops), muted italic
  * @property {Map<string, number>} [vec]  bag-of-words vector; set by the store
  *
  * @typedef {object} JevResult

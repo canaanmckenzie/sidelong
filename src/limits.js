@@ -16,9 +16,9 @@
  *             seenAt?: number }} LimitInfo
  */
 
+import { SERVER } from "./chat.js";
+
 const KEY = "sidelong.limits";
-// Milestone 3 gives the server base URL a single home; move this there too.
-const SERVER = "http://localhost:8787";
 
 /**
  * "21:14" if the moment is within 24 h of now, else "fri 21:14".

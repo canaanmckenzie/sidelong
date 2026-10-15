@@ -38,11 +38,15 @@ dependencies. Types live in JSDoc comments checked by `// @ts-check` — see
 - `src/deck.js` — rendering, navigation, the composer
 - `src/store.js` — deck state (in memory until milestone 6)
 - `src/theme.js` — the b/w and slate palettes
+- `src/chat.js` — streaming client for the thin server (`serverUp`, `streamChat`)
+- `src/limits.js` — the `%` usage glyph and its readout
 - `src/fixtures.js` — the five seed pages, also used by the tests
 - `server/index.js` — the thin API server (`/embed`, `/chat`); zero deps, `node:http` + `claude -p` + Ollama
 - `server/sse.js` — NDJSON/SSE parsing and stream-event translation; pure functions
 - `tools/serve.js` — the dev server
 - `test/jev.test.js`, `test/sse.test.js` — classifier and stream-parsing tests
 
-Milestone status (see HANDOFF.md): **1–2 done** — scaffold and the thin
-server. Next: wire the chat (milestone 3).
+Milestone status (see HANDOFF.md): **1–3 done** — scaffold, the thin
+server, and the wired chat (run both `npm run dev` and `npm run server`,
+plus `ollama serve`, and ask away). Next: the real classifier via
+`/embed` (milestone 4).

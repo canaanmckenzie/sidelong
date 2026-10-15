@@ -3,6 +3,7 @@
 import { initDeck } from "./deck.js";
 import { initTheme } from "./theme.js";
 import { initLimits } from "./limits.js";
+import { serverUp } from "./chat.js";
 import { state, addPage } from "./store.js";
 import { SEED } from "./fixtures.js";
 
@@ -17,12 +18,20 @@ function must(id) {
 for (const p of SEED) addPage({ ...p, a: [...p.a] });
 state.active = state.pages.length - 1;
 
+const limits = initLimits(/** @type {HTMLButtonElement} */ (must("limits")), must("limitsPanel"));
+const input = /** @type {HTMLTextAreaElement} */ (must("q"));
+
 initDeck({
   deck: must("deck"),
   count: must("count"),
   form: /** @type {HTMLFormElement} */ (must("composer")),
-  input: /** @type {HTMLTextAreaElement} */ (must("q")),
+  input,
+  onLimit: (ev) => limits.update(ev),
 });
 initTheme(/** @type {HTMLButtonElement} */ (must("theme")), must("themeLabel"));
-// milestone 3: keep the returned updater and feed it each `limit` event off the chat stream
-initLimits(/** @type {HTMLButtonElement} */ (must("limits")), must("limitsPanel"));
+
+// Say so up front if the thin server isn't running, in the one spot the
+// eye already goes; asking still works the moment it comes up.
+void serverUp().then((up) => {
+  if (!up) input.placeholder = "server offline — npm run server, then ask away";
+});

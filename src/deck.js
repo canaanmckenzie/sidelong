@@ -1,18 +1,29 @@
 // @ts-check
 /**
- * Deck rendering, navigation, and the composer. Milestone 3 replaces the
- * stub answer in ask() with the streaming chat call; the page must still
- * open, square painted, before the first token arrives.
+ * Deck rendering, navigation, and the composer. On submit the page is
+ * created and opened, square already painted, before the first token;
+ * the answer then streams into it from the thin server.
  */
 import { jev, squareVars } from "./jev.js";
-import { state, addPage } from "./store.js";
+import { state, addPage, reindexPage } from "./store.js";
+import { streamChat } from "./chat.js";
 
 /** @typedef {import("./types.js").Page} Page */
 
 /**
- * @param {{ deck: HTMLElement, count: HTMLElement, form: HTMLFormElement, input: HTMLTextAreaElement }} els
+ * Split streamed text into answer paragraphs.
+ * @param {string} s
+ * @returns {string[]}
  */
-export function initDeck({ deck, count, form, input }) {
+export function paragraphs(s) {
+  return s.split(/\n{2,}/).map((t) => t.trim()).filter((t) => t !== "");
+}
+
+/**
+ * @param {{ deck: HTMLElement, count: HTMLElement, form: HTMLFormElement, input: HTMLTextAreaElement,
+ *           onLimit?: (ev: { status: string, windows: object }) => void }} els
+ */
+export function initDeck({ deck, count, form, input, onLimit }) {
 
   /** @param {HTMLElement} el @param {Page} p */
   function paint(el, p) {
@@ -61,12 +72,7 @@ export function initDeck({ deck, count, form, input }) {
       j.innerHTML = readout(p, i); // numbers and page indexes only, never user text
       const a = document.createElement("div");
       a.className = "a";
-      p.a.forEach((t, k) => {
-        const para = document.createElement("p");
-        if (p.live && k === p.a.length - 1) para.className = "note";
-        para.textContent = t;
-        a.appendChild(para);
-      });
+      fillAnswer(a, p);
       col.append(h, j, a);
       full.appendChild(col);
 
@@ -76,25 +82,83 @@ export function initDeck({ deck, count, form, input }) {
     count.textContent = state.pages.length + (state.pages.length === 1 ? " page" : " pages");
   }
 
+  /** Answer paragraphs plus the status note, rebuilt in place. @param {Element} a @param {Page} p */
+  function fillAnswer(a, p) {
+    a.textContent = "";
+    for (const t of p.a) {
+      const para = document.createElement("p");
+      para.textContent = t;
+      a.appendChild(para);
+    }
+    if (p.note) {
+      const para = document.createElement("p");
+      para.className = "note";
+      para.textContent = p.note;
+      a.appendChild(para);
+    }
+  }
+
+  /** Redraw only one page's answer, so streaming doesn't rebuild the deck. @param {number} i */
+  function renderAnswer(i) {
+    const a = deck.children[i]?.querySelector(".a");
+    const p = state.pages[i];
+    if (a && p) fillAnswer(a, p);
+  }
+
+  const askBtn = /** @type {HTMLButtonElement | null} */ (form.querySelector("#ask"));
+  let busy = false;
+
   /** @param {string} text */
-  function ask(text) {
+  async function ask(text) {
+    // Paint first: the square and the question appear the moment Enter
+    // lands, before the model has said anything.
     const r = jev(text, state.pages);
-    const a = [
-      "This is the milestone 1 scaffold, so nothing answers yet. In milestone 3 the model's reply streams in here, and the page you are reading is the only thing on screen.",
-      "The square in the corner was decided the moment you pressed Ask: " + (r.novel
-        ? "no page scored above the floor, so it took the emptiest arc of the hue circle and stayed pale."
-        : "it was pulled toward page " + ((r.near ?? 0) + 1) + " with cosine " + r.sim.toFixed(2) + ", and its saturation is that confidence.")
-    ];
-    addPage({ q: text, a, ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel }, true);
-    state.active = state.pages.length - 1;
+    /** @type {Page} */
+    const p = { q: text, a: [], ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel };
+    addPage(p, true);
+    const i = state.pages.length - 1;
+    state.active = i;
     render();
+
+    busy = true;
+    if (askBtn) askBtn.disabled = true;
+    let answer = "";
+    try {
+      await streamChat(
+        { prompt: text, ...(state.sessionId ? { sessionId: state.sessionId } : {}) },
+        (ev) => {
+          if (ev.type === "token") {
+            answer += ev.text;
+            p.a = paragraphs(answer);
+            renderAnswer(i);
+          } else if (ev.type === "session") {
+            state.sessionId = ev.sessionId;
+          } else if (ev.type === "stop" && ev.stopReason !== "end_turn") {
+            p.note = "(stopped: " + ev.stopReason + ")";
+            renderAnswer(i);
+          } else if (ev.type === "limit") {
+            onLimit?.(ev);
+          } else if (ev.type === "error") {
+            p.note = "(error: " + ev.message + ")";
+            renderAnswer(i);
+          }
+        },
+      );
+    } catch {
+      p.note = "(server unreachable — start it with npm run server, then ask again)";
+      renderAnswer(i);
+    } finally {
+      busy = false;
+      if (askBtn) askBtn.disabled = false;
+      reindexPage(p); // later questions score against the full answer
+    }
   }
 
   form.addEventListener("submit", e => {
     e.preventDefault();
     const text = input.value.trim();
-    if (!text) return;
-    ask(text);
+    if (!text || busy) return;
+    void ask(text);
     input.value = "";
     grow();
   });
