@@ -30,6 +30,13 @@ const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
 const EMBED_MODEL = process.env.EMBED_MODEL ?? "nomic-embed-text";
 const MAX_BODY = 1 << 20; // 1 MiB
 
+/**
+ * The CLI reports plan usage on every turn; keep the last reading so
+ * /healthz can hand it to the client's usage glyph between turns.
+ * @type {import("./sse.js").ChatEvent | null}
+ */
+let lastLimit = null;
+
 /** @type {Record<string, string>} */
 const CORS = {
   "access-control-allow-origin": ORIGIN,
@@ -140,6 +147,7 @@ async function handleChat(req, res) {
       const ev = cliLineToChatEvent(line);
       if (!ev) continue;
       if (ev.type === "error") sawError = true;
+      if (ev.type === "limit") lastLimit = ev;
       send(ev);
     }
   });
@@ -171,7 +179,7 @@ async function handleHealth(res) {
   } catch {
     embed = false;
   }
-  sendJson(res, 200, { ok: true, chat: "claude-cli", embed, embedModel: EMBED_MODEL });
+  sendJson(res, 200, { ok: true, chat: "claude-cli", embed, embedModel: EMBED_MODEL, limits: lastLimit });
 }
 
 createServer(async (req, res) => {

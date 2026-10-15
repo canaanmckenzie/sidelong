@@ -38,6 +38,22 @@ test("CLI stream_event lines translate like raw API events", () => {
   );
 });
 
+test("rate limit lines become limit events; empty ones are dropped", () => {
+  assert.deepEqual(
+    cliLineToChatEvent(
+      '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","unifiedWindows":{"five_hour":{"utilization":0.12,"resetsAt":1792045800},"seven_day":{"utilization":0.09,"resetsAt":1792458000},"seven_day_overage_included":{"utilization":0.17,"resetsAt":1792458000}}}}',
+    ),
+    {
+      type: "limit",
+      status: "allowed",
+      windows: {
+        fiveHour: { utilization: 0.12, resetsAt: 1792045800 },
+        sevenDay: { utilization: 0.09, resetsAt: 1792458000 },
+      },
+    },
+  );
+});
+
 test("CLI housekeeping lines are dropped; error results surface", () => {
   assert.equal(cliLineToChatEvent('{"type":"rate_limit_event","rate_limit_info":{}}'), null);
   assert.equal(cliLineToChatEvent('{"type":"assistant","message":{}}'), null);

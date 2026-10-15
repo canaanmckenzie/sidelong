@@ -104,6 +104,7 @@ body {
 
 /* composer */
 .composer {
+  position: relative;
   display: flex; align-items: flex-end; gap: 12px;
   border-top: 1px solid var(--line); padding-block: 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -119,6 +120,25 @@ body {
   background: none; border: 1px solid var(--line); color: var(--fg); padding: 8px 12px; cursor: pointer;
 }
 #ask:hover { background: var(--fg); color: var(--bg); }
+
+/* the usage glyph and its readout */
+#limits {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+  background: none; border: 0; color: var(--mute); cursor: pointer; padding: 8px 2px;
+}
+#limits:hover, #limits[aria-expanded="true"] { color: var(--fg); }
+#limits:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+#limitsPanel {
+  position: absolute; right: 0; bottom: calc(100% + 1px);
+  background: var(--bg); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; color: var(--mute);
+  font-variant-numeric: tabular-nums;
+  padding: 12px 14px; min-width: 250px; box-sizing: border-box;
+}
+#limitsPanel .row { display: flex; justify-content: space-between; gap: 16px; }
+#limitsPanel .row + .row { margin-top: 6px; }
+#limitsPanel .k { text-transform: uppercase; }
+#limitsPanel .v { color: var(--fg); }
 
 @media (max-width: 600px) {
   :root { --strip: 28px; }

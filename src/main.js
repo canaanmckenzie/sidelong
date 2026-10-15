@@ -2,6 +2,7 @@
 /** Boot: load the seed deck, wire the modules to the DOM. */
 import { initDeck } from "./deck.js";
 import { initTheme } from "./theme.js";
+import { initLimits } from "./limits.js";
 import { state, addPage } from "./store.js";
 import { SEED } from "./fixtures.js";
 
@@ -23,3 +24,5 @@ initDeck({
   input: /** @type {HTMLTextAreaElement} */ (must("q")),
 });
 initTheme(/** @type {HTMLButtonElement} */ (must("theme")), must("themeLabel"));
+// milestone 3: keep the returned updater and feed it each `limit` event off the chat stream
+initLimits(/** @type {HTMLButtonElement} */ (must("limits")), must("limitsPanel"));

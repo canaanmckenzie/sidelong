@@ -66,6 +66,25 @@ Milestones 1 **and 2** of HANDOFF.md are done and verified end-to-end:
 - Headless CLI startup adds ~2–4s before the first token; acceptable for
   v1, but the "page opens before first token" design hides it anyway.
 
+## Added after milestone 2: the usage glyph
+
+User request (Oct 14): limits shown only on demand, "a little icon at the
+bottom I can click." Implemented end to end:
+
+- Server: `rate_limit_event` CLI lines → `limit` SSE events
+  (`{status, windows: {fiveHour, sevenDay}}`, utilization 0–1, resetsAt
+  unix seconds); last reading cached and served on `/healthz` as `limits`.
+- Client: `src/limits.js` — a mono `%` button in the composer's right
+  corner, panel above it (border-only, design-system styling). Shows both
+  windows, "limit reached" when status ≠ allowed, and when the reading
+  was taken; persists the last reading in localStorage; fetches /healthz
+  on open. `initLimits` returns `{update}` — **milestone 3 must call it
+  with each `limit` event off the chat stream** (main.js has the comment).
+- Note: `claude -p` does NOT wait at a usage limit; it errors out. The
+  deck survives (sessions persist on disk; resubmit with --resume after
+  reset). A composer disable/auto-retry on limit is a possible milestone
+  3+ nicety, not committed to.
+
 ## Next: milestone 3 (HANDOFF.md)
 
 Wire the chat. On submit: create the page, open it (before the first

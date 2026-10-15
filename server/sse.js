@@ -16,10 +16,13 @@
 /** @typedef {{ event: string, data: string }} SSEEvent */
 
 /**
+ * @typedef {{ utilization: number, resetsAt: number }} LimitWindow
+ *
  * @typedef {{ type: "session", sessionId: string }
  *         | { type: "token", text: string }
  *         | { type: "stop", stopReason: string }
  *         | { type: "done" }
+ *         | { type: "limit", status: string, windows: { fiveHour?: LimitWindow, sevenDay?: LimitWindow } }
  *         | { type: "error", message: string }} ChatEvent
  */
 
@@ -85,8 +88,17 @@ export function cliLineToChatEvent(line) {
       return d.is_error
         ? { type: "error", message: typeof d.result === "string" ? d.result : (d.subtype ?? "CLI error") }
         : null; // success is already signalled by message_stop → done
+    case "rate_limit_event": {
+      const u = d.rate_limit_info?.unifiedWindows;
+      if (!u || (!u.five_hour && !u.seven_day)) return null;
+      /** @type {{ fiveHour?: LimitWindow, sevenDay?: LimitWindow }} */
+      const windows = {};
+      if (u.five_hour) windows.fiveHour = { utilization: u.five_hour.utilization, resetsAt: u.five_hour.resetsAt };
+      if (u.seven_day) windows.sevenDay = { utilization: u.seven_day.utilization, resetsAt: u.seven_day.resetsAt };
+      return { type: "limit", status: d.rate_limit_info.status ?? "unknown", windows };
+    }
     default:
-      return null; // assistant snapshots, rate_limit_event, status, …
+      return null; // assistant snapshots, status, …
   }
 }
 

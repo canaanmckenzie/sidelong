@@ -19,7 +19,7 @@ npm run check   # type-check the JSDoc annotations (tsc --noEmit, nothing compil
 ```
 
 There are no API keys. `POST /chat` takes `{ prompt, sessionId? }` and
-streams SSE events (`session`, `token`, `stop`, `done`, `error`) by
+streams SSE events (`session`, `token`, `stop`, `done`, `limit`, `error`) by
 driving the Claude Code CLI you're already logged into (headless
 `claude -p --resume`, billed to the existing Max subscription — a deck
 is one Claude session). `POST /embed` takes `{ texts: [...] }` and
