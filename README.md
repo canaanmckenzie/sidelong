@@ -1,62 +1,56 @@
 # Sidelong
 
-A chat interface laid out sideways. Every question-and-answer pair is a
-page; the open page sits in the middle of the screen, and older pages
+A chat interface laid out sideways. Each question-and-answer pair is a
+page. The open page sits in the middle of the screen; older pages
 collapse into thin vertical strips on the left, so a long session reads
-as a row of tabs instead of a scroll. Each page carries a colored mark —
-hue says what the page is about, saturation says how sure the classifier
-was — so related follow-ups share a color and a stack of twenty old
-pages can be scanned by eye.
+as a row of tabs instead of a scroll. Each page gets a colored mark.
+Hue encodes topic, saturation encodes classifier confidence, so
+follow-ups end up sharing their thread's color and you can find a
+conversation in a stack of twenty pages without reading anything.
 
 ![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png)
 
-It runs entirely on things you already have. Chat drives the Claude Code
-CLI you're logged into, so turns are billed to your existing Claude
-subscription (Pro/Max) exactly like your normal `claude` sessions — a
-deck *is* one Claude session, resumed turn by turn. Topic embeddings
-come from a small local Ollama model. There are **no API keys anywhere**
-and no accounts beyond the ones you already have.
+There are no API keys. Chat runs through the Claude Code CLI you're
+already logged into, billed to your Claude subscription like any other
+`claude` session. A deck is one Claude session, resumed turn by turn.
+Topic embeddings come from a local Ollama model and never leave your
+machine.
 
 ## Quick start
 
-You need two things installed first (one-time, a few minutes):
+Two prerequisites:
 
-1. **[Claude Code](https://claude.com/claude-code)** — install it, then
-   run `claude` once in a terminal and log in with your Claude account.
-   That's the only account sidelong ever uses: the server runs the CLI
-   headless (`claude -p`), so chat is billed to your subscription like
-   any normal `claude` session, against the same usage limits (the `%`
-   glyph in the composer shows where you stand).
-2. **[Ollama](https://ollama.com)** — embeddings run on it, locally and
-   free. macOS/Windows: install the app from
-   [ollama.com/download](https://ollama.com/download). Linux:
-   `curl -fsSL https://ollama.com/install.sh | sh` (or unpack the
-   release tarball anywhere and put `bin/ollama` on your PATH — no root
-   needed). You do **not** need to pull any model — the launcher does
-   that itself.
+1. [Claude Code](https://claude.com/claude-code), logged in. Install it
+   and run `claude` once. Sidelong drives it headless (`claude -p`), so
+   usage counts against your subscription's normal limits. The `%` glyph
+   in the composer shows where the current window stands.
+2. [Ollama](https://ollama.com), for embeddings. macOS/Windows: the app
+   from [ollama.com/download](https://ollama.com/download). Linux:
+   `curl -fsSL https://ollama.com/install.sh | sh`, or unpack the
+   release tarball anywhere and put `bin/ollama` on your PATH (no root
+   needed). You don't need to pull a model; the launcher does that.
 
 Then, with Node.js 22+:
 
 ```
 git clone https://github.com/canaanmckenzie/sidelong.git
 cd sidelong
-npm install     # dev-only deps (typescript + @types/node); install scripts are disabled
+npm install     # dev deps only: typescript + @types/node; install scripts disabled
 npm start
 ```
 
-`npm start` checks everything and tells you exactly what's missing if
-something is: it verifies the `claude` CLI, starts Ollama if it's
-installed but not running, **pulls the embedding model automatically on
-first run** (~670 MB, with progress), and launches both servers. When it
-prints `sidelong → http://localhost:5173`, open that and ask something.
+`npm start` preflights everything and says what's missing: it checks the
+`claude` CLI, starts Ollama if it's installed but not running, pulls the
+embedding model on first run (~670 MB, with progress), launches the two
+servers, and prints `sidelong → http://localhost:5173`.
 
-Arrow keys move between pages when the composer isn't focused; clicking
-any strip opens it. The deck persists in the browser (IndexedDB), so a
-reload restores your pages — and the Claude session behind them, so
-follow-ups still continue the same conversation tomorrow. The `⋯` glyph
-by the composer exports the deck as JSON, imports one, or starts fresh.
-If the server or Ollama ever goes down, asking still paints colors from
-an offline word-match fallback and the readout appends `offline`.
+Arrow keys move between pages when the composer isn't focused. Clicking
+a strip opens it. The deck persists in IndexedDB, so a reload restores
+the pages and the Claude session behind them; follow-ups continue the
+same conversation tomorrow. The `⋯` glyph exports the deck as JSON,
+imports one, or starts a new deck. If the server or Ollama is down,
+questions still get colors from a bag-of-words fallback and the readout
+says `offline`.
 
 <details>
 <summary>Running the pieces by hand instead</summary>
@@ -67,86 +61,111 @@ npm run server     # the thin server  → localhost:8787
 npm run dev        # the app          → localhost:5173
 ```
 
-Three processes, any order; `ollama pull mxbai-embed-large` once
+Three processes, any order. `ollama pull mxbai-embed-large` once
 beforehand.
 </details>
 
-## How to read a page
+## How the colors work
 
-The color is the point. Every page carries one mark — a square on the
-open page, a thin spine on collapsed strips — and its **hue is the
-topic**: a new question is placed on the color wheel near the pages it
-resembles, so follow-ups inherit their thread's color and an unrelated
-question lands in the emptiest part of the wheel. **Saturation is
-confidence**: a vivid mark means the classifier was sure of the match, a
-pale one means a fresh or uncertain topic. Scanning the strips by color
-tells you where every conversation thread lives without reading a word.
+Every page has one mark: a 12px square on the open page, a 3px spine on
+collapsed strips. A new question is placed on the color wheel near the
+pages it's most similar to, so follow-ups inherit their thread's hue.
+If nothing in the deck clears a similarity floor, the question is a new
+topic and takes the midpoint of the widest empty arc, desaturated.
+Saturation tracks the classifier's confidence in the match.
 
-The placement happens three times, each with better information. The
-instant you press Enter, a word-match classifier colors the page so it
-never appears blank. About 30 ms later the real embedding of your
-question settles the color (a quick cross-fade — the page never moves).
-And once the answer has streamed in, the page is re-scored against the
-question *plus* the answer, which is a far better signal than a
-seven-word question.
+Placement runs three times as better information arrives:
 
-The small line under each question is the classifier owning up to its
-verdict: `follow-up · 90%` — what it decided, and how confident it was.
-`new topic` means nothing scored above the similarity floor (no
-percentage, since there's no match to be confident in). If the
-post-answer re-score changed its mind, the line keeps the history:
-`new topic → follow-up · 84%`. Hover the line for the raw numbers
-(nearest page, cosine similarity, hue) if you want to see the gears.
+1. On Enter, a bag-of-words cosine places the page instantly (this is
+   also the offline fallback).
+2. ~30 ms later, the question's embedding is scored against each page's
+   question+answer embedding and the placement is redone. The color
+   cross-fades; the page never moves.
+3. When the answer finishes streaming, the page is scored again using
+   question plus answer, and the verdict is allowed to change.
 
-### Configuration (environment, all optional)
+The line under each question is the verdict: `follow-up · 90%`.
+`new topic` carries no percentage, since there is no match to be
+confident in. If the post-answer re-score changed the verdict, the line
+keeps the history: `new topic → follow-up · 84%`. Hovering it shows the
+raw numbers (nearest page, cosine, hue).
+
+The calibration constants were fit by measurement, not guessed:
+`node tools/calibrate.js <model>` prints the question-to-page cosine
+matrix over the fixture deck. The default model is `mxbai-embed-large`
+because smaller models tested couldn't separate "same thread" from
+"same broad domain" (a question about sardines outscored a genuine
+networking follow-up on `nomic-embed-text`).
+
+## What talks to what
+
+- Questions go to Anthropic through the `claude` CLI, exactly as in a
+  normal Claude Code session. No other service is contacted.
+- Embeddings are computed locally by Ollama and stay on your machine.
+- The thin server (`server/index.js`, about 200 lines) binds localhost,
+  holds no credentials, and does two things: spawn `claude -p` and call
+  Ollama.
+- The deck lives in your browser's IndexedDB and in JSON files you
+  export.
+
+## Configuration (environment, all optional)
 
 | Variable | Default | |
 | --- | --- | --- |
 | `PORT` | `8787` | thin-server port |
 | `SIDELONG_ORIGIN` | `http://localhost:5173` | CORS origin for the app |
-| `CLAUDE_BIN` | `claude` | the CLI the chat rides |
-| `OLLAMA_URL` | `http://127.0.0.1:11434` | where embeddings live |
-| `EMBED_MODEL` | `mxbai-embed-large` | swap it, then re-fit: `node tools/calibrate.js <model>` prints the similarity matrix for re-tuning `EMB` in `src/jev.js` (smaller models were tried and couldn't separate "same thread" from "same broad domain") |
+| `CLAUDE_BIN` | `claude` | the CLI that chat runs through |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | where embeddings come from |
+| `EMBED_MODEL` | `mxbai-embed-large` | if you swap it, re-fit `EMB` in `src/jev.js` with `tools/calibrate.js` |
 
 ## Shape
 
-Plain JavaScript, native ES modules, no framework, no build step, and
-**zero runtime dependencies** — the npm supply chain stays out of it
-(`.npmrc` disables install scripts and pins exact versions; dev deps are
-exactly `typescript` and `@types/node`). Types live in JSDoc comments
-checked by `tsc --noEmit` (`npm run check`); tests run on Node's
-built-in runner (`npm test`).
+Plain JavaScript, native ES modules, no framework, no build step, zero
+runtime dependencies. Dev dependencies are exactly `typescript` and
+`@types/node`; `.npmrc` disables install scripts and pins exact
+versions. Types are JSDoc comments checked by `tsc --noEmit`
+(`npm run check`); tests run on Node's built-in runner (`npm test`).
 
 - `src/jev.js` — the classifier and the OKLCH painter; pure functions,
   one `place()` shared by the word-match and embedding paths
 - `src/deck.js` — rendering, navigation, the composer, streaming
-- `src/md.js` — zero-dependency markdown reader (pure parser; the DOM is
-  built via `textContent`, no injection path)
-- `src/hl.js` — monochrome syntax highlighting (the design allows no
+- `src/md.js` — markdown reader (pure parser; the DOM is built via
+  `textContent`, no injection path)
+- `src/hl.js` — monochrome syntax highlighting; the design allows no
   color beyond the topic marks, so code structure comes from weight,
-  slant, and ink level)
+  slant, and ink level
 - `src/chat.js` — streaming client for the thin server
 - `src/limits.js` — the `%` usage glyph and its readout
 - `src/deckmenu.js` — the `⋯` glyph: export / import / new deck
 - `src/store.js` — deck state, persisted to IndexedDB; JSON export/import
 - `src/theme.js` — the black-on-white and slate-with-cream palettes
 - `src/fixtures.js` — the five seed pages, also used by the tests
-- `src/types.js` — the data shapes (JSDoc typedefs; the checker's contract)
-- `server/index.js` — the thin server: `POST /chat` spawns `claude -p`
-  (stream-json → simplified SSE), `POST /embed` calls Ollama,
-  `GET /healthz`; `node:http` + `fetch`, nothing else
+- `src/types.js` — the data shapes (JSDoc typedefs)
+- `server/index.js` — `POST /chat` spawns `claude -p` (stream-json in,
+  simplified SSE out), `POST /embed` calls Ollama, `GET /healthz`
 - `server/sse.js` — stream parsing and translation; pure functions
-- `tools/start.js`, `tools/serve.js`, `tools/calibrate.js` — the
-  one-command launcher, the dev server, the calibration script
+- `tools/start.js`, `tools/serve.js`, `tools/calibrate.js` — launcher,
+  dev server, calibration
 
-`HANDOFF.md` is the full design document (interaction model, visual
-spec, the classifier math, acceptance criteria). `SESSION-NOTES.md`
-tracks the build session to session. `prototype/sidelong.html` is the
-original one-file prototype.
+`HANDOFF.md` is the design document: interaction model, visual spec,
+the classifier math, acceptance criteria. `SESSION-NOTES.md` tracks the
+build session to session. `prototype/sidelong.html` is the original
+one-file prototype.
 
-Milestone status (see HANDOFF.md): **1–6 done** — scaffold, server,
-wired chat, real classifier, re-color, persistence. Next: polish
-(milestone 7: trackpad paging, strip overflow past ~30 pages).
+## Caveats
+
+- One deck at a time. Two open app tabs will race the save
+  (last writer wins).
+- Requires a Claude subscription; that's the point of the design, not a
+  limitation being hidden.
+- The markdown renderer covers paragraphs, fenced code, headings, lists,
+  blockquotes, and inline code/bold/italic/links. No tables or images.
+- A hue circle is one dimension and topics aren't, so with enough
+  distinct topics two unrelated threads will eventually sit at nearby
+  angles. Accepted for v1; HANDOFF.md discusses it.
+- Milestones 1–6 of the plan are done (scaffold, server, chat,
+  classifier, re-color, persistence). Remaining: trackpad paging and
+  strip overflow handling past ~30 pages.
 
 ## License
 
