@@ -1,1 +1,5 @@
 node_modules/
+
+# local screenshot/demo scaffolding, never shipped
+docs/demo.html
+/_*.html
