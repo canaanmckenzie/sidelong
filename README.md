@@ -38,7 +38,8 @@ dependencies. Types live in JSDoc comments checked by `// @ts-check` — see
 - `src/deck.js` — rendering, navigation, the composer
 - `src/store.js` — deck state (in memory until milestone 6)
 - `src/theme.js` — the b/w and slate palettes
-- `src/chat.js` — streaming client for the thin server (`serverUp`, `streamChat`)
+- `src/chat.js` — streaming client for the thin server (`serverUp`, `streamChat`, `embed`)
+- `src/md.js` — zero-dependency markdown reader (pure parser; deck.js builds the DOM via textContent)
 - `src/limits.js` — the `%` usage glyph and its readout
 - `src/fixtures.js` — the five seed pages, also used by the tests
 - `server/index.js` — the thin API server (`/embed`, `/chat`); zero deps, `node:http` + `claude -p` + Ollama

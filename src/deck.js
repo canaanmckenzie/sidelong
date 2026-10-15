@@ -7,16 +7,28 @@
 import { jev, place, cosineVec, squareVars, EMB } from "./jev.js";
 import { state, addPage, reindexPage } from "./store.js";
 import { streamChat, embed } from "./chat.js";
+import { parse } from "./md.js";
 
 /** @typedef {import("./types.js").Page} Page */
 
-/**
- * Split streamed text into answer paragraphs.
- * @param {string} s
- * @returns {string[]}
- */
-export function paragraphs(s) {
-  return s.split(/\n{2,}/).map((t) => t.trim()).filter((t) => t !== "");
+/** Inline markdown spans into an element, all via textContent. @param {HTMLElement} el @param {import("./md.js").Inline[]} parts */
+function fillInline(el, parts) {
+  for (const t of parts) {
+    if (t.type === "text") {
+      el.appendChild(document.createTextNode(t.text));
+    } else if (t.type === "link") {
+      const a = document.createElement("a");
+      a.textContent = t.text;
+      a.href = t.href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      el.appendChild(a);
+    } else {
+      const span = document.createElement({ code: "code", strong: "strong", em: "em" }[t.type]);
+      span.textContent = t.text;
+      el.appendChild(span);
+    }
+  }
 }
 
 /**
@@ -83,13 +95,37 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     count.textContent = state.pages.length + (state.pages.length === 1 ? " page" : " pages");
   }
 
-  /** Answer paragraphs plus the status note, rebuilt in place. @param {Element} a @param {Page} p */
+  /** The answer as rendered markdown plus the status note, rebuilt in place. @param {Element} a @param {Page} p */
   function fillAnswer(a, p) {
     a.textContent = "";
-    for (const t of p.a) {
-      const para = document.createElement("p");
-      para.textContent = t;
-      a.appendChild(para);
+    for (const b of parse(p.a)) {
+      if (b.type === "code") {
+        const pre = document.createElement("pre");
+        const code = document.createElement("code");
+        if (b.lang) code.dataset.lang = b.lang;
+        code.textContent = b.text;
+        pre.appendChild(code);
+        a.appendChild(pre);
+      } else if (b.type === "list") {
+        const list = document.createElement(b.ordered ? "ol" : "ul");
+        for (const item of b.items) {
+          const li = document.createElement("li");
+          fillInline(li, item);
+          list.appendChild(li);
+        }
+        a.appendChild(list);
+      } else if (b.type === "quote") {
+        const bq = document.createElement("blockquote");
+        const para = document.createElement("p");
+        fillInline(para, b.inline);
+        bq.appendChild(para);
+        a.appendChild(bq);
+      } else {
+        // answers start under an h2 question, so markdown # maps to h3
+        const el = document.createElement(b.type === "h" ? "h" + Math.min(6, b.level + 2) : "p");
+        fillInline(el, b.inline);
+        a.appendChild(el);
+      }
     }
     if (p.note) {
       const para = document.createElement("p");
@@ -120,7 +156,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     try {
       const earlier = state.pages.slice(0, i);
       const missing = earlier.filter(pg => !pg.evec);
-      const vectors = await embed([p.q, ...missing.map(pg => pg.q + " " + pg.a.join(" "))]);
+      const vectors = await embed([p.q, ...missing.map(pg => pg.q + " " + pg.a)]);
       missing.forEach((pg, j) => { pg.evec = vectors[j + 1]; });
       const sims = earlier.map(pg => (pg.evec ? cosineVec(vectors[0], pg.evec) : 0));
       const r = place(p.q, sims, earlier, EMB);
@@ -140,7 +176,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
     // verdict follows a beat later and repaints without moving anything.
     const r = jev(text, state.pages);
     /** @type {Page} */
-    const p = { q: text, a: [], ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel };
+    const p = { q: text, a: "", ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel };
     addPage(p, true);
     const i = state.pages.length - 1;
     state.active = i;
@@ -149,14 +185,12 @@ export function initDeck({ deck, count, form, input, onLimit }) {
 
     busy = true;
     if (askBtn) askBtn.disabled = true;
-    let answer = "";
     try {
       await streamChat(
         { prompt: text, ...(state.sessionId ? { sessionId: state.sessionId } : {}) },
         (ev) => {
           if (ev.type === "token") {
-            answer += ev.text;
-            p.a = paragraphs(answer);
+            p.a += ev.text;
             renderAnswer(i);
           } else if (ev.type === "session") {
             state.sessionId = ev.sessionId;
@@ -179,7 +213,7 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       if (askBtn) askBtn.disabled = false;
       reindexPage(p); // later questions score against the full answer
       // upgrade the embedding the same way (re-coloring from it is milestone 5)
-      void embed([p.q + " " + p.a.join(" ")]).then(v => { p.evec = v[0]; }).catch(() => {});
+      void embed([p.q + " " + p.a]).then(v => { p.evec = v[0]; }).catch(() => {});
     }
   }
 

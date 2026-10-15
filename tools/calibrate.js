@@ -14,8 +14,8 @@ import { cosineVec } from "../src/jev.js";
 
 const model = process.argv[2] ?? "nomic-embed-text";
 const texts = [
-  ...SEED.map((p) => p.q + " " + p.a.join(" ")), // 0..n-1: pages (q+a)
-  ...SEED.map((p) => p.q),                       // n..2n-1: questions alone
+  ...SEED.map((p) => p.q + " " + p.a), // 0..n-1: pages (q+a)
+  ...SEED.map((p) => p.q),             // n..2n-1: questions alone
 ];
 
 const res = await fetch("http://127.0.0.1:11434/api/embed", {

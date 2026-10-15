@@ -15,7 +15,7 @@ function must(id) {
 }
 
 // copies, so the exported fixtures stay pristine for tests
-for (const p of SEED) addPage({ ...p, a: [...p.a] });
+for (const p of SEED) addPage({ ...p });
 state.active = state.pages.length - 1;
 
 const limits = initLimits(/** @type {HTMLButtonElement} */ (must("limits")), must("limitsPanel"));

@@ -5,7 +5,7 @@
  *
  * @typedef {object} Page
  * @property {string} q               the question
- * @property {string[]} a             answer paragraphs
+ * @property {string} a               the answer, markdown text
  * @property {number} ang             topic hue, degrees on the OKLCH hue circle
  * @property {number} r               confidence radius, 0..1; drives chroma
  * @property {number | null} near     index of the most similar page, null when none

@@ -13,7 +13,7 @@ import { SEED } from "../src/fixtures.js";
 /** @typedef {import("../src/types.js").Page} Page */
 
 /** @param {Page} p @returns {Page} */
-const withVec = (p) => ({ ...p, vec: vec(p.q + " " + p.a.join(" ")) });
+const withVec = (p) => ({ ...p, vec: vec(p.q + " " + p.a) });
 const fixtures = SEED.map(withVec);
 
 /** Smallest angular distance between two hues. @param {number} a @param {number} b */
@@ -83,7 +83,7 @@ test("embeddings: the VLAN question lands beside Smart Queues (the flipped TODO)
 
 test("a new topic takes the midpoint of the widest empty arc", () => {
   /** @param {number} ang @param {string} words @returns {Page} */
-  const mk = (ang, words) => withVec({ q: words, a: [words], ang, r: 0.9, near: null, sim: null });
+  const mk = (ang, words) => withVec({ q: words, a: words, ang, r: 0.9, near: null, sim: null });
   const pages = [mk(0, "alpha beta gamma delta"), mk(90, "epsilon zeta eta iota")];
   const r = jev("completely unrelated question about watercolor pigments", pages);
   assert.equal(r.novel, true);

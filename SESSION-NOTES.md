@@ -47,33 +47,50 @@ Milestones 1–3 of HANDOFF.md are done and verified, plus the usage glyph:
 6. HANDOFF.md amended for all of this; repo copy canonical, Desktop
    copy synced.
 
+## Milestone 4 + markdown (done this session, after m3)
+
+- **M4 real classifier:** placement logic extracted to
+  `place(question, sims, pages, cal)` in jev.js — bag-of-words and
+  embeddings share centroid/arc/jitter/confidence. Submit paints
+  instantly from bag-of-words (`BOW` cal), then `deck.refine()` embeds
+  the question + any pages missing vectors (seeds self-heal) and
+  re-places with `EMB`; square color cross-fades 400 ms (reduced-motion
+  respected), page never moves. After the stream, evec upgrades to q+a
+  (re-color from it = milestone 5). /embed failure → word-match stands,
+  readout appends "offline".
+- **Calibration is measured, not guessed:** `tools/calibrate.js` prints
+  the question→page cosine matrix. nomic-embed-text: related 0.51–0.59,
+  unrelated ≤0.41 → `EMB = {k: 1.5, floor: 0.46, drop: 0.42}`. The
+  handoff's k≈1.25 guess and the "VLAN ≈196°" TODO were wrong: VLAN
+  correctly lands beside Smart Queues (~222°, single qualifying
+  neighbor). If EMBED_MODEL changes, re-run the script, refit EMB and
+  the pinned sims in test/jev.test.js. Warm embed ≈ 25–55 ms.
+- **Markdown (user: "1000% we need markdown"):** `Page.a` is now a raw
+  markdown STRING (fixtures join their arrays; persistence will want
+  this shape). `src/md.js` = pure zero-dep parser (fences with lang,
+  #–#### headings → h3+, ul/ol, blockquotes, inline code/bold/em/links;
+  streaming-safe: unclosed fence renders). deck.js builds DOM via
+  textContent only — no innerHTML, no injection path. Styles stay in
+  the design system (code on --faint, hairline blockquote rule).
+
 ## Known issues / TODOs
 
-- `test/jev.test.js` `TODO(milestone 4)`: bag-of-words calls the VLAN
-  fixture a new topic; with embeddings it should score near page 1,
-  hue ≈ 196°. Flip the test then; re-fit `k` (≈1.25) for embeddings.
-- Answers render as plain-text paragraphs (split on blank lines); the
-  CLI returns markdown, so lists/code blocks show raw. Fine for v1;
-  worth a design decision eventually (handoff never specified markdown).
 - Flagged in review, not yet scheduled: strip overflow past ~25 pages;
   "60° from every page" criterion unsatisfiable past 6 topics; readout
   should surface verdict changes after re-color (milestone 5).
 - No per-turn timeout on the CLI spawn; a hung turn leaves the composer
   busy until the server is restarted. Revisit if it bites.
+- md.js em/strong don't nest (flat tokenization); tables and images
+  unsupported. Fine until it visibly bites.
 
-## Next: milestone 4 (HANDOFF.md)
+## Next: milestone 5 (HANDOFF.md) + aesthetics
 
-Real classifier. Replace the bag-of-words `vec()` with `POST /embed`
-(Ollama vectors, 768 dims): embed the question alone at submit, embed
-question+answer after the stream (milestone 5 does the re-color; m4 can
-still store the richer vector). Keep bag-of-words as the offline
-fallback when `/healthz` says the server or Ollama is down. Re-fit `k`
-so CoDel-after-Smart-Queues lands ≥0.8 confidence and sourdough lands
-below the floor; flip the VLAN test. Note `jev()` is sync today and
-embedding is async — the submit path must stay "page opens within one
-frame", so paint from the sync fallback first and re-place from the
-embedding when it arrives, or make ask() await /embed before jev (it's
-~ms-fast locally; measure before complicating).
+**The user wants an aesthetics session**: "I want this thing to look
+and feel good, snappy, clean" — they asked to be invited to give input.
+Do that before or alongside milestone 5 (re-color after the answer:
+re-run place() from the q+a evec — deck.js finally-block already stores
+it — animate the square, allow the verdict to change, surface verdict
+changes in the readout).
 
 ## Environment
 

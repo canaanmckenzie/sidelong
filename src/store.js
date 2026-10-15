@@ -26,7 +26,7 @@ export const state = {
  * @param {boolean} [live] true for pages asked this session
  */
 export function addPage(p, live) {
-  p.vec = vec(p.q + " " + p.a.join(" "));
+  p.vec = vec(p.q + " " + p.a);
   p.live = !!live;
   state.pages.push(p);
 }
@@ -38,5 +38,5 @@ export function addPage(p, live) {
  * @param {Page} p
  */
 export function reindexPage(p) {
-  p.vec = vec(p.q + " " + p.a.join(" "));
+  p.vec = vec(p.q + " " + p.a);
 }
