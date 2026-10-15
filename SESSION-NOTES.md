@@ -111,11 +111,14 @@ change; when it does, p.was keeps the old word and the readout shows
 
 ## GitHub
 
-README rewritten for strangers (requirements: Node 22+, Claude Code
-logged in, Ollama + nomic-embed-text; three processes; no API keys;
-docs/screenshot.png). No remote configured yet; no LICENSE file yet —
-user decides both. Their email is public in commit authorship (their
-own git identity).
+Public at https://github.com/canaanmckenzie/sidelong (pushed Oct 14,
+2026). MIT licensed. History was rewritten pre-push so all authorship
+is the user's noreply address — keep repo-local `user.email` as is;
+never commit with the real email. `gh` CLI is authed (HTTPS, token in
+plain `~/.config/gh/hosts.yml` — keyring was janky on this box).
+Note: `~/.gitconfig` symlinks to `~/lab/dotfiles/git/gitconfig`; the
+target was created empty during gh setup (credential helper lives
+there now).
 
 ## The sardines incident (Oct 14, user bug report)
 
