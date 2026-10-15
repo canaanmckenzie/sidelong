@@ -1,0 +1,18 @@
+{
+  "name": "sidelong",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node tools/serve.js",
+    "test": "node --test",
+    "check": "tsc -p jsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

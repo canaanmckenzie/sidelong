@@ -1,0 +1,349 @@
+<title>Sidelong Threads</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one screen. A thin header, a horizontal deck of pages (old ones collapse to vertical strips on the left,
+     the active one opens in the middle), and a question box pinned to the bottom. */
+  :root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --mute: #6f6f6f;
+    --line: #111111;
+    --faint: #ececec;
+    --sq-l: 0.62;          /* lightness of the topic square (oklch) */
+    --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --strip: 38px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #2d3540; --fg: #f3ecd9; --mute: #b7af9c; --line: #f3ecd9; --faint: #3a4450; --sq-l: 0.8;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #2d3540; --fg: #f3ecd9; --mute: #b7af9c; --line: #f3ecd9; --faint: #3a4450; --sq-l: 0.8;
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--serif); font-size: 17px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    height: 100%; display: grid; grid-template-rows: auto 1fr auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0;
+    box-sizing: border-box;
+  }
+
+  /* header */
+  .bar {
+    display: flex; align-items: center; gap: 16px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding-block: 12px; border-bottom: 1px solid var(--line);
+  }
+  .brand { font-weight: 500; }
+  .meta { color: var(--mute); margin-left: auto; }
+  .meta kbd { font: inherit; }
+  #theme {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: 0; color: var(--fg); font: inherit; letter-spacing: inherit; text-transform: inherit;
+    cursor: pointer; padding: 4px 0;
+  }
+  #theme .swatch { width: 12px; height: 12px; background: var(--fg); outline: 1px solid var(--fg); outline-offset: 2px; }
+  #theme:focus-visible, .strip:focus-visible, #ask:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+  /* deck */
+  .deck { display: flex; min-height: 0; align-items: stretch; }
+  .page {
+    position: relative; min-width: 0; min-height: 0;
+    flex: 0 1 var(--strip); border-left: 1px solid var(--line);
+    transition: flex-grow .35s cubic-bezier(.3,.7,.2,1);
+  }
+  .page:first-child { border-left: 0; }
+  .page.active { flex: 1 0 var(--strip); }
+  .sq {
+    position: absolute; top: 12px; left: 12px; width: 12px; height: 12px;
+    background: hsl(var(--sq-h) var(--sq-s) 50%);
+    background: oklch(var(--sq-l) var(--sq-c) var(--sq-h));
+  }
+  .page.active .sq { top: 20px; left: 12px; }
+
+  /* collapsed view */
+  .strip {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    background: none; border: 0; color: var(--mute); cursor: pointer; padding: 0;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding-block: 36px 16px; box-sizing: border-box; text-align: left;
+  }
+  .strip:hover { background: var(--faint); color: var(--fg); }
+  .strip .n { font-weight: 500; color: var(--fg); margin-block-end: 10px; }
+  .page.active .strip { display: none; }
+
+  /* open view */
+  .full { display: none; height: 100%; overflow-y: auto; overflow-x: hidden; }
+  .page.active .full { display: block; }
+  .col {
+    max-width: 66ch; margin: 0 auto; box-sizing: border-box;
+    padding: 40px clamp(16px, 4vw, 48px) 48px;
+  }
+  .q {
+    font-weight: 500; font-size: 1.35rem; line-height: 1.3; margin: 0 0 6px; text-wrap: balance;
+  }
+  .jev {
+    font-family: var(--mono); font-size: 11px; color: var(--mute); letter-spacing: 0.02em;
+    margin: 0 0 28px; font-variant-numeric: tabular-nums;
+  }
+  .jev b { font-weight: 500; color: var(--fg); }
+  .a p { margin: 0 0 1em; }
+  .a p:last-child { margin-bottom: 0; }
+  .a .note { color: var(--mute); font-style: italic; }
+
+  /* composer */
+  .composer {
+    display: flex; align-items: flex-end; gap: 12px;
+    border-top: 1px solid var(--line); padding-block: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  #q {
+    flex: 1 1 auto; min-width: 0; resize: none; border: 0; background: transparent; color: var(--fg);
+    font-family: var(--serif); font-size: 17px; line-height: 1.5; padding: 4px 0; max-height: 40vh;
+  }
+  #q:focus { outline: none; }
+  #q::placeholder { color: var(--mute); }
+  #ask {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    background: none; border: 1px solid var(--line); color: var(--fg); padding: 8px 12px; cursor: pointer;
+  }
+  #ask:hover { background: var(--fg); color: var(--bg); }
+
+  @media (max-width: 600px) {
+    :root { --strip: 28px; }
+    .strip { font-size: 10px; }
+    .q { font-size: 1.15rem; }
+    .meta .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .page { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">Sidelong</div>
+    <div class="meta"><span id="count"></span><span class="hint"> · <kbd>←</kbd> <kbd>→</kbd> to move</span></div>
+    <button id="theme" type="button" aria-label="Switch between black-on-white and slate-with-cream"><span class="swatch"></span><span id="themeLabel">b/w</span></button>
+  </header>
+  <main class="deck" id="deck" aria-live="polite"></main>
+  <form class="composer" id="composer">
+    <textarea id="q" rows="1" placeholder="Ask a follow-up, or something new" aria-label="Your question"></textarea>
+    <button id="ask" type="submit">Ask</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  // ---------- sample pages (example content; positions are what an embedding model would hand back) ----------
+  const SEED = [
+    { q: "How do Smart Queues work in UniFi, and why would I turn them on in a business network?",
+      a: [
+        "Smart Queues is UniFi's name for SQM, smart queue management, running on the gateway. You tell it the real upload and download rate of the line, usually 85 to 95 percent of what a clean speed test shows. The gateway then shapes traffic to stay just under that rate, so the queue builds up in a place it controls rather than in the modem or the ISP's equipment, where it cannot see it.",
+        "Inside that shaped queue it runs fq_codel: traffic is hashed into many small per-flow queues, and each one is policed by CoDel, which drops or marks packets when they have been waiting too long. The effect is that a big download cannot fill a buffer and make everyone else wait behind it. That buffer-filling is bufferbloat, and it is what makes a VoIP call stutter the moment someone starts a backup.",
+        "In a business network that is the whole case: predictable latency under load for calls, video meetings, and remote desktop. The cost is CPU. Shaping every packet means the gateway cannot use hardware offload, so an older USG tops out well under its rated throughput with Smart Queues on, and even a UDM Pro will not shape a full gigabit. On a line of a few hundred megabits it is almost always worth it."
+      ],
+      ang: 222, r: 0.92, near: null, sim: null },
+    { q: "How does the CoDel bucket actually work?",
+      a: [
+        "CoDel stands for controlled delay, and the trick is that it never looks at how full the queue is. It timestamps every packet on the way in and measures sojourn time, how long each packet sat, on the way out. A deep queue that drains fast is fine; a short queue that drains slowly is the problem.",
+        "It watches the minimum sojourn time over an interval, 100 ms by default. If even the luckiest packet in that window waited longer than the target, 5 ms, the queue is standing rather than bursting, and CoDel enters its dropping state. It drops one packet, then schedules the next drop at interval divided by the square root of the drop count, so drops come faster and faster until the minimum delay falls back under target. Then it backs off and waits again.",
+        "The fq in fq_codel adds flow queueing in front of that: packets are hashed by five-tuple into around a thousand queues, served round-robin with a deficit counter, and each queue gets its own CoDel. So a greedy flow only ever punishes itself. Sparse flows, like a DNS lookup or a game packet, get a slight priority because the round robin reaches them before the fat flows have used their quantum."
+      ],
+      ang: 229, r: 0.96, near: 0, sim: 0.64 },
+    { q: "What's a sane VLAN layout for a 40-person office?",
+      a: [
+        "Four or five VLANs covers almost every office of that size. Staff devices on one. Printers, cameras, door controllers, and anything else that will never get a security patch on an IoT or devices VLAN with no route to the staff network except through explicitly allowed ports. Guest Wi-Fi on its own, isolated from everything but the internet. Management for switches, APs, and the gateway itself, reachable only from a small admin subnet.",
+        "Resist the urge to split staff by department. The isolation rarely buys anything and you will spend the next two years writing exceptions. Where you do want a boundary is around the things that get compromised first: cheap IoT gear and guest laptops. Everything else is a firewall rule, not a VLAN.",
+        "Tag the uplinks, leave the access ports untagged on the staff VLAN, and write the rules in one direction: new VLANs start with deny, then you add what they need."
+      ],
+      ang: 196, r: 0.70, near: 0, sim: 0.31 },
+    { q: "Why does my sourdough starter smell like nail-polish remover?",
+      a: [
+        "That acetone smell means the starter is hungry. When the yeast run out of sugars they shift metabolism and the culture starts producing ethyl acetate and other esters, which read to the nose as nail-polish remover or overripe fruit. A grey liquid on top, hooch, usually shows up at the same time.",
+        "It is not spoiled. Pour off the hooch or stir it back in, discard most of the starter, and feed it at a higher ratio than usual, something like 1:2:2 by weight. Two or three feeds on schedule and the smell goes back to sour and yeasty. If it is happening every day, feed more often or keep it a little cooler. Dough mixed with a starter in this state will still rise, but it proofs slowly and bakes flat, so wait a feed or two before baking."
+      ],
+      ang: 42, r: 0.88, near: 2, sim: 0.04 },
+    { q: "On symmetric fiber, should I lower the fq_codel target below 5 ms?",
+      a: [
+        "Probably not. The 5 ms target and 100 ms interval were chosen to work across typical internet RTTs; the interval needs to be longer than the round trip for a flow to react to a drop, and the target is set to be a small fraction of that. On a fast, low-latency link the defaults still behave well, and the gains from shaving the target are measured in fractions of a millisecond.",
+        "What does matter at high rates is the bandwidth setting on the shaper, and the quantum. If the shaper is set too close to line rate, the upstream buffer fills and fq_codel never gets a chance; set it a few percent under. At gigabit rates the default quantum of 1514 bytes is fine. Lowering target below the serialization time of a single large packet, which at 1 Gbps is about 12 microseconds, is pointless, and below about 1 ms it starts to cause unnecessary drops on bursty flows.",
+        "If you want to tune something, tune the shaper rate and verify with a bufferbloat test under load. Leave the CoDel constants alone."
+      ],
+      ang: 226, r: 0.90, near: 1, sim: 0.58 },
+  ];
+
+  // ---------- jev: the inference hook. Here it is bag-of-words cosine; in the real build it is an embedding model. ----------
+  const STOP = new Set(("a an the and or but if then so of to in on at for from by with without into over under about as is are was were be been being do does did have has had it its this that these those i me my we our you your they them their he she his her what which who whom whose why how when where would should could can will shall may might must also just very really not no yes than too any some all each every both either neither one two more most much many few less least own same other another such only there here up down out off again further once ever never always".split(" ")));
+  function tokens(text) {
+    return text.toLowerCase().replace(/[’']/g, "").split(/[^a-z0-9_]+/)
+      .filter(w => w.length > 1 && !STOP.has(w))
+      .map(w => w.replace(/(ing|ers|er|es|s)$/, (m, g) => (w.length > 4 ? "" : m)));
+  }
+  function vec(text) { const v = new Map(); for (const t of tokens(text)) v.set(t, (v.get(t) || 0) + 1); return v; }
+  function cosine(a, b) {
+    let dot = 0, na = 0, nb = 0;
+    for (const [k, x] of a) { na += x * x; const y = b.get(k); if (y) dot += x * y; }
+    for (const [, y] of b) nb += y * y;
+    return na && nb ? dot / Math.sqrt(na * nb) : 0;
+  }
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
+
+  function jev(question, pages) {
+    const qv = vec(question);
+    const sims = pages.map(p => cosine(qv, p.vec));
+    let best = -1, bestSim = 0;
+    sims.forEach((s, i) => { if (s > bestSim) { bestSim = s; best = i; } });
+    const conf = Math.min(1, bestSim * 5);           // crude calibration: 0.2 cosine on bag-of-words is a strong match
+    const jitter = (hash(question) - 0.5) * 8;       // siblings should not land on the identical hue
+    if (bestSim < 0.06 || best < 0) {
+      // new topic: take the widest empty arc on the hue circle, sit in the middle of it, pale
+      const angs = pages.map(p => p.ang).sort((x, y) => x - y);
+      let gapStart = angs[angs.length - 1], gapSize = 360 - gapStart + angs[0];
+      for (let i = 0; i < angs.length - 1; i++) { const g = angs[i + 1] - angs[i]; if (g > gapSize) { gapSize = g; gapStart = angs[i]; } }
+      return { ang: (gapStart + gapSize / 2 + jitter + 360) % 360, r: 0.25, near: best >= 0 ? best : null, sim: bestSim, novel: true };
+    }
+    let x = 0, y = 0, w = 0;
+    sims.forEach((s, i) => {
+      if (s < 0.03) return;
+      const k = s * s, t = pages[i].ang * Math.PI / 180;
+      x += k * pages[i].r * Math.cos(t); y += k * pages[i].r * Math.sin(t); w += k;
+    });
+    const ang = (Math.atan2(y / w, x / w) * 180 / Math.PI + jitter + 360) % 360;
+    return { ang, r: 0.3 + 0.7 * conf, near: best, sim: bestSim, novel: false };
+  }
+
+  // ---------- state ----------
+  const deck = document.getElementById("deck");
+  const count = document.getElementById("count");
+  const form = document.getElementById("composer");
+  const q = document.getElementById("q");
+  let pages = [];
+  let active = 0;
+
+  function addPage(p, live) {
+    p.vec = vec(p.q + " " + p.a.join(" "));
+    p.live = !!live;
+    pages.push(p);
+  }
+
+  function paint(el, p) {
+    el.style.setProperty("--sq-h", p.ang.toFixed(1));
+    el.style.setProperty("--sq-c", (0.03 + 0.15 * p.r).toFixed(3));
+    el.style.setProperty("--sq-s", Math.round(20 + 70 * p.r) + "%");
+  }
+
+  function readout(p, i) {
+    if (i === 0 && p.near === null) return "first page · hue " + Math.round(p.ang) + "°";
+    const nearest = p.near === null ? "" : "nearest <b>#" + (p.near + 1) + "</b> " + p.sim.toFixed(2);
+    const verdict = p.novel || p.sim < 0.06 ? "new topic" : p.r > 0.8 ? "follow-up" : "related";
+    return verdict + " · " + nearest + " · hue " + Math.round(p.ang) + "° · confidence " + Math.round(p.r * 100) + "%";
+  }
+
+  function render() {
+    deck.textContent = "";
+    pages.forEach((p, i) => {
+      const page = document.createElement("article");
+      page.className = "page" + (i === active ? " active" : "");
+      page.dataset.i = i;
+      paint(page, p);
+
+      const sq = document.createElement("span"); sq.className = "sq"; sq.setAttribute("aria-hidden", "true");
+
+      const strip = document.createElement("button");
+      strip.type = "button"; strip.className = "strip"; strip.title = p.q;
+      strip.setAttribute("aria-label", "Open page " + (i + 1) + ": " + p.q);
+      const n = document.createElement("span"); n.className = "n"; n.textContent = String(i + 1).padStart(2, "0");
+      strip.append(n, document.createTextNode(p.q));
+      strip.addEventListener("click", () => { active = i; render(); });
+
+      const full = document.createElement("div"); full.className = "full";
+      const col = document.createElement("div"); col.className = "col";
+      const h = document.createElement("h2"); h.className = "q"; h.textContent = p.q;
+      const j = document.createElement("p"); j.className = "jev"; j.innerHTML = readout(p, i);
+      const a = document.createElement("div"); a.className = "a";
+      p.a.forEach((t, k) => { const para = document.createElement("p"); if (p.live && k === p.a.length - 1) para.className = "note"; para.textContent = t; a.appendChild(para); });
+      col.append(h, j, a); full.appendChild(col);
+
+      page.append(sq, strip, full);
+      deck.appendChild(page);
+    });
+    count.textContent = pages.length + (pages.length === 1 ? " page" : " pages");
+  }
+
+  function ask(text) {
+    const r = jev(text, pages);
+    const a = [
+      "This is the prototype, so nothing answers yet. In the real build the model's reply streams in here, and the page you are reading is the only thing on screen.",
+      "The square in the corner was decided the moment you pressed Ask: " + (r.novel ? "no page scored above the floor, so it took the emptiest arc of the hue circle and stayed pale." : "it was pulled toward page " + (r.near + 1) + " with cosine " + r.sim.toFixed(2) + ", and its saturation is that confidence.")
+    ];
+    addPage({ q: text, a, ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel }, true);
+    active = pages.length - 1;
+    render();
+  }
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const text = q.value.trim();
+    if (!text) return;
+    ask(text);
+    q.value = ""; grow();
+  });
+  q.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  function grow() { q.style.height = "auto"; q.style.height = Math.min(q.scrollHeight, window.innerHeight * 0.4) + "px"; }
+  q.addEventListener("input", grow);
+
+  document.addEventListener("keydown", e => {
+    if (e.target === q) return;
+    if (e.key === "ArrowLeft" && active > 0) { active--; render(); }
+    if (e.key === "ArrowRight" && active < pages.length - 1) { active++; render(); }
+  });
+
+  // ---------- theme toggle ----------
+  const root = document.documentElement;
+  const themeBtn = document.getElementById("theme");
+  const themeLabel = document.getElementById("themeLabel");
+  function isDark() {
+    const t = root.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function labelTheme() { themeLabel.textContent = isDark() ? "slate" : "b/w"; }
+  themeBtn.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("sidelong-theme", next); } catch (_) {}
+    labelTheme();
+  });
+  try { const t = localStorage.getItem("sidelong-theme"); if (t === "dark" || t === "light") root.setAttribute("data-theme", t); } catch (_) {}
+  labelTheme();
+
+  // ---------- boot (keeps your pages if the page is republished under you) ----------
+  function start(data) {
+    if (data && data.pages && data.pages.length) {
+      data.pages.forEach(p => addPage(p, p.live));
+      active = Math.min(data.active || 0, pages.length - 1);
+    } else {
+      SEED.forEach(p => addPage(p, false));
+      active = pages.length - 1;
+    }
+    render();
+  }
+  window.claude?.hot?.snapshot?.(() => ({ pages: pages.map(p => ({ q: p.q, a: p.a, ang: p.ang, r: p.r, near: p.near, sim: p.sim, novel: p.novel, live: p.live })), active }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
