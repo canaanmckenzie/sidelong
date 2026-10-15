@@ -1,7 +1,56 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { drainEvents, toChatEvent } from "../server/sse.js";
+import { drainEvents, toChatEvent, drainLines, cliLineToChatEvent } from "../server/sse.js";
+
+test("NDJSON lines split incrementally, partial line kept in rest", () => {
+  const first = drainLines('{"type":"system","subtype":"init","session_id":"abc"}\n{"type":"stre');
+  assert.equal(first.lines.length, 1);
+  assert.equal(first.rest, '{"type":"stre');
+  const second = drainLines(first.rest + 'am_event"}\n');
+  assert.deepEqual(second.lines, ['{"type":"stream_event"}']);
+  assert.equal(second.rest, "");
+});
+
+test("CLI init line yields the session id", () => {
+  assert.deepEqual(
+    cliLineToChatEvent('{"type":"system","subtype":"init","session_id":"abc-123","tools":[]}'),
+    { type: "session", sessionId: "abc-123" },
+  );
+});
+
+test("CLI stream_event lines translate like raw API events", () => {
+  assert.deepEqual(
+    cliLineToChatEvent(
+      '{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}}',
+    ),
+    { type: "token", text: "hi" },
+  );
+  assert.deepEqual(
+    cliLineToChatEvent('{"type":"stream_event","event":{"type":"message_stop"}}'),
+    { type: "done" },
+  );
+  assert.deepEqual(
+    cliLineToChatEvent(
+      '{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"}}}',
+    ),
+    { type: "stop", stopReason: "end_turn" },
+  );
+});
+
+test("CLI housekeeping lines are dropped; error results surface", () => {
+  assert.equal(cliLineToChatEvent('{"type":"rate_limit_event","rate_limit_info":{}}'), null);
+  assert.equal(cliLineToChatEvent('{"type":"assistant","message":{}}'), null);
+  assert.equal(cliLineToChatEvent('{"type":"result","subtype":"success","is_error":false}'), null);
+  assert.deepEqual(
+    cliLineToChatEvent('{"type":"result","subtype":"error_during_execution","is_error":true,"result":"boom"}'),
+    { type: "error", message: "boom" },
+  );
+  assert.deepEqual(cliLineToChatEvent("not json"), {
+    type: "error",
+    message: "unparseable CLI output line",
+  });
+});
 
 test("a complete event parses into name and data", () => {
   const { events, rest } = drainEvents('event: message_stop\ndata: {"type":"message_stop"}\n\n');

@@ -1,26 +1,33 @@
 // @ts-check
 /**
- * The thin server. It holds the API keys and does exactly two things:
- * embeds text (POST /embed, Voyage AI) and streams chat completions
- * (POST /chat, Claude API, re-emitted as SSE so the client never sees
- * provider wire formats). Zero dependencies: node:http + fetch.
+ * The thin server. No API keys anywhere: chat rides the Claude Code CLI
+ * the user is already logged into (Max plan, headless `claude -p`), and
+ * embeddings come from a local Ollama. Zero dependencies: node:http,
+ * node:child_process, fetch.
  *
- * Keys come from the environment only:
- *   ANTHROPIC_API_KEY   required for /chat
- *   VOYAGE_API_KEY      required for /embed
- * Optional:
+ *   POST /chat   { prompt, sessionId? } → SSE: session/token/stop/done/error.
+ *                The CLI owns conversation history; pass the sessionId
+ *                from the first turn's `session` event to continue a deck.
+ *   POST /embed  { texts: [...] } → { model, vectors } via Ollama.
+ *   GET  /healthz
+ *
+ * Optional environment:
  *   PORT              default 8787
  *   SIDELONG_ORIGIN   CORS origin, default http://localhost:5173
- *   ANTHROPIC_MODEL   default claude-opus-5-5
- *   VOYAGE_MODEL      default voyage-3.5-lite
+ *   CLAUDE_BIN        default "claude"
+ *   OLLAMA_URL        default http://127.0.0.1:11434
+ *   EMBED_MODEL       default nomic-embed-text
  */
 import { createServer } from "node:http";
-import { drainEvents, toChatEvent } from "./sse.js";
+import { spawn } from "node:child_process";
+import { homedir } from "node:os";
+import { drainLines, cliLineToChatEvent } from "./sse.js";
 
 const PORT = Number(process.env.PORT) || 8787;
 const ORIGIN = process.env.SIDELONG_ORIGIN ?? "http://localhost:5173";
-const CHAT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5";
-const EMBED_MODEL = process.env.VOYAGE_MODEL ?? "voyage-3.5-lite";
+const CLAUDE_BIN = process.env.CLAUDE_BIN ?? "claude";
+const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
+const EMBED_MODEL = process.env.EMBED_MODEL ?? "nomic-embed-text";
 const MAX_BODY = 1 << 20; // 1 MiB
 
 /** @type {Record<string, string>} */
@@ -62,8 +69,6 @@ function sendJson(res, status, body) {
  * @param {import("node:http").ServerResponse} res
  */
 async function handleEmbed(req, res) {
-  const key = process.env.VOYAGE_API_KEY;
-  if (!key) return sendJson(res, 503, { error: "VOYAGE_API_KEY is not set" });
   const body = await readJson(req);
   const texts = body?.texts;
   const ok =
@@ -72,17 +77,22 @@ async function handleEmbed(req, res) {
     texts.length <= 128 &&
     texts.every((t) => typeof t === "string" && t.length > 0);
   if (!ok) return sendJson(res, 400, { error: "expected { texts: [non-empty strings, 1–128] }" });
-  const upstream = await fetch("https://api.voyageai.com/v1/embeddings", {
-    method: "POST",
-    headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: EMBED_MODEL, input: texts }),
-  });
+  /** @type {Response} */
+  let upstream;
+  try {
+    upstream = await fetch(`${OLLAMA_URL}/api/embed`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: EMBED_MODEL, input: texts }),
+    });
+  } catch {
+    return sendJson(res, 503, { error: `ollama unreachable at ${OLLAMA_URL}` });
+  }
   if (!upstream.ok) {
-    return sendJson(res, 502, { error: `voyage ${upstream.status}: ${await upstream.text()}` });
+    return sendJson(res, 502, { error: `ollama ${upstream.status}: ${await upstream.text()}` });
   }
   const data = await upstream.json();
-  const vectors = [...data.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
-  sendJson(res, 200, { model: data.model, vectors });
+  sendJson(res, 200, { model: data.model ?? EMBED_MODEL, vectors: data.embeddings });
 }
 
 /**
@@ -90,66 +100,78 @@ async function handleEmbed(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 async function handleChat(req, res) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return sendJson(res, 503, { error: "ANTHROPIC_API_KEY is not set" });
   const body = await readJson(req);
-  const messages = body?.messages;
-  const ok =
-    Array.isArray(messages) &&
-    messages.length >= 1 &&
-    messages.every(
-      (m) =>
-        m &&
-        typeof m === "object" &&
-        (m.role === "user" || m.role === "assistant") &&
-        typeof m.content === "string" &&
-        m.content.length > 0,
-    );
-  if (!ok) return sendJson(res, 400, { error: "expected { messages: [{ role, content }, …] }" });
-
-  // Stop paying for tokens nobody is reading if the browser goes away.
-  const abort = new AbortController();
-  res.on("close", () => abort.abort());
-
-  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      // Server-side refusal fallback: on a safety decline the API retries
-      // the same request on a fallback model inside the same call.
-      "anthropic-beta": "server-side-fallback-2026-07-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      max_tokens: 64000,
-      stream: true,
-      fallbacks: "default",
-      ...(typeof body.system === "string" ? { system: body.system } : {}),
-      messages,
-    }),
-    signal: abort.signal,
-  });
-  if (!upstream.ok || !upstream.body) {
-    return sendJson(res, 502, { error: `claude ${upstream.status}: ${await upstream.text()}` });
+  const prompt = body?.prompt;
+  const sessionId = body?.sessionId;
+  if (typeof prompt !== "string" || prompt.trim() === "") {
+    return sendJson(res, 400, { error: "expected { prompt: non-empty string, sessionId? }" });
   }
+  if (sessionId !== undefined && typeof sessionId !== "string") {
+    return sendJson(res, 400, { error: "sessionId must be a string" });
+  }
+
+  const args = [
+    "-p", prompt,
+    "--output-format", "stream-json",
+    "--include-partial-messages",
+    "--verbose",
+    "--disallowedTools", "*",
+    "--strict-mcp-config",
+  ];
+  if (sessionId) args.push("--resume", sessionId);
+
+  // The deck is a plain conversation, so run the CLI from the user's home,
+  // not this repo — same place their normal sessions live.
+  const child = spawn(CLAUDE_BIN, args, { cwd: homedir(), stdio: ["ignore", "pipe", "pipe"] });
+  res.on("close", () => child.kill("SIGTERM")); // reader gone → stop the turn
 
   res.writeHead(200, { ...CORS, "content-type": "text/event-stream", "cache-control": "no-store" });
   /** @param {import("./sse.js").ChatEvent} ev */
   const send = (ev) => res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`);
-  const decoder = new TextDecoder();
+
   let buffer = "";
-  for await (const chunk of upstream.body) {
-    buffer += decoder.decode(chunk, { stream: true });
-    const drained = drainEvents(buffer);
+  let sawError = false;
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (/** @type {string} */ chunk) => {
+    buffer += chunk;
+    const drained = drainLines(buffer);
     buffer = drained.rest;
-    for (const e of drained.events) {
-      const ev = toChatEvent(e);
-      if (ev) send(ev);
+    for (const line of drained.lines) {
+      const ev = cliLineToChatEvent(line);
+      if (!ev) continue;
+      if (ev.type === "error") sawError = true;
+      send(ev);
     }
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (/** @type {string} */ chunk) => {
+    stderr += chunk.slice(0, 4096);
+  });
+  child.on("close", (code) => {
+    if (code !== 0 && !sawError && !res.closed) {
+      send({ type: "error", message: `claude exited ${code}: ${stderr.trim().slice(-500)}` });
+    }
+    res.end();
+  });
+  child.on("error", (err) => {
+    if (!res.closed) send({ type: "error", message: `could not start ${CLAUDE_BIN}: ${err.message}` });
+    res.end();
+  });
+}
+
+/**
+ * @param {import("node:http").ServerResponse} res
+ */
+async function handleHealth(res) {
+  let embed = false;
+  try {
+    const ping = await fetch(`${OLLAMA_URL}/api/version`, { signal: AbortSignal.timeout(1000) });
+    embed = ping.ok;
+  } catch {
+    embed = false;
   }
-  res.end();
+  sendJson(res, 200, { ok: true, chat: "claude-cli", embed, embedModel: EMBED_MODEL });
 }
 
 createServer(async (req, res) => {
@@ -158,21 +180,14 @@ createServer(async (req, res) => {
       res.writeHead(204, CORS);
       return void res.end();
     }
-    if (req.method === "GET" && req.url === "/healthz") {
-      return sendJson(res, 200, {
-        ok: true,
-        chat: Boolean(process.env.ANTHROPIC_API_KEY),
-        embed: Boolean(process.env.VOYAGE_API_KEY),
-      });
-    }
+    if (req.method === "GET" && req.url === "/healthz") return await handleHealth(res);
     if (req.method === "POST" && req.url === "/embed") return await handleEmbed(req, res);
     if (req.method === "POST" && req.url === "/chat") return await handleChat(req, res);
     sendJson(res, 404, { error: "not found" });
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") return void res.end();
     if (!res.headersSent) sendJson(res, 500, { error: err instanceof Error ? err.message : "server error" });
     else res.end();
   }
 }).listen(PORT, () => {
-  console.log(`sidelong server → http://localhost:${PORT} (chat: ${CHAT_MODEL}, embed: ${EMBED_MODEL})`);
+  console.log(`sidelong server → http://localhost:${PORT} (chat: ${CLAUDE_BIN} -p, embed: ${EMBED_MODEL} @ ${OLLAMA_URL})`);
 });
