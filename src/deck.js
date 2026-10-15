@@ -8,6 +8,7 @@ import { jev, place, cosineVec, squareVars, EMB } from "./jev.js";
 import { state, addPage, reindexPage } from "./store.js";
 import { streamChat, embed } from "./chat.js";
 import { parse } from "./md.js";
+import { highlight } from "./hl.js";
 
 /** @typedef {import("./types.js").Page} Page */
 
@@ -130,7 +131,16 @@ export function initDeck({ deck, form, input, onLimit }) {
         const pre = document.createElement("pre");
         const code = document.createElement("code");
         if (b.lang) code.dataset.lang = b.lang;
-        code.textContent = b.text;
+        for (const t of highlight(b.text, b.lang)) {
+          if (!t.cls) {
+            code.appendChild(document.createTextNode(t.text));
+          } else {
+            const s = document.createElement("span");
+            s.className = "tok-" + t.cls;
+            s.textContent = t.text;
+            code.appendChild(s);
+          }
+        }
         pre.appendChild(code);
         a.appendChild(pre);
       } else if (b.type === "list") {

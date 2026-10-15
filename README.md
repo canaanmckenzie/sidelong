@@ -8,8 +8,7 @@ hue says what the page is about, saturation says how sure the classifier
 was — so related follow-ups share a color and a stack of twenty old
 pages can be scanned by eye.
 
-![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png#gh-light-mode-only)
-![Sidelong: strips on the left, the open page in the middle](docs/screenshot-dark.png#gh-dark-mode-only)
+![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png)
 
 It runs entirely on things you already have. Chat drives the Claude Code
 CLI you're logged into, so turns are billed to your existing Claude
@@ -120,6 +119,9 @@ built-in runner (`npm test`).
 - `src/deck.js` — rendering, navigation, the composer, streaming
 - `src/md.js` — zero-dependency markdown reader (pure parser; the DOM is
   built via `textContent`, no injection path)
+- `src/hl.js` — monochrome syntax highlighting (the design allows no
+  color beyond the topic marks, so code structure comes from weight,
+  slant, and ink level)
 - `src/chat.js` — streaming client for the thin server
 - `src/limits.js` — the `%` usage glyph and its readout
 - `src/store.js` — deck state (in memory until milestone 6)
