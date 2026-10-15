@@ -17,13 +17,18 @@
 /** Bag-of-words: a 0.2 cosine is a strong match. */
 export const BOW = { k: 5, floor: 0.06, drop: 0.03 };
 /**
- * nomic-embed-text, measured over the fixtures (tools/calibrate.js,
- * Oct 2026): related questions score 0.51–0.59 against their pages,
- * unrelated tops out at 0.41. Floor splits that gap; k puts a 0.51
- * follow-up at ≥0.8 confidence; drop keeps unrelated pages out of the
- * hue centroid. Re-run the script if EMBED_MODEL changes.
+ * mxbai-embed-large, measured over the fixtures plus adversarial probes
+ * (tools/calibrate.js, Oct 2026): related questions score 0.49–0.64
+ * against their pages; unrelated topical ones top out at 0.29, and the
+ * hard cases — cross-domain ("random question about sardines" vs the
+ * sourdough page) and chatty meta-questions ("testing") — at 0.40–0.41.
+ * Floor 0.42 sits above all of those; k puts a 0.56 follow-up at ≥0.8
+ * confidence; drop keeps sub-floor pages out of the hue centroid.
+ * (nomic-embed-text was tried first and could not separate thread from
+ * domain: sardines→sourdough outscored a true follow-up.) Re-run the
+ * script if EMBED_MODEL changes.
  */
-export const EMB = { k: 1.5, floor: 0.46, drop: 0.42 };
+export const EMB = { k: 1.45, floor: 0.42, drop: 0.38 };
 
 const STOP = new Set(("a an the and or but if then so of to in on at for from by with without into over under about as is are was were be been being do does did have has had it its this that these those i me my we our you your they them their he she his her what which who whom whose why how when where would should could can will shall may might must also just very really not no yes than too any some all each every both either neither one two more most much many few less least own same other another such only there here up down out off again further once ever never always".split(" ")));
 

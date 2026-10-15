@@ -27,7 +27,7 @@ const PORT = Number(process.env.PORT) || 8787;
 const ORIGIN = process.env.SIDELONG_ORIGIN ?? "http://localhost:5173";
 const CLAUDE_BIN = process.env.CLAUDE_BIN ?? "claude";
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
-const EMBED_MODEL = process.env.EMBED_MODEL ?? "nomic-embed-text";
+const EMBED_MODEL = process.env.EMBED_MODEL ?? "mxbai-embed-large";
 const MAX_BODY = 1 << 20; // 1 MiB
 
 /**

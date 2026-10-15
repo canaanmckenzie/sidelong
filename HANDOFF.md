@@ -67,7 +67,7 @@ where `δ` is a small deterministic jitter of ±4° hashed from the question tex
 r = 0.3 + 0.7 \cdot \min\!\left(1,\; k \cdot \max_i \operatorname{sim}_i\right), \qquad C = 0.03 + 0.15\, r
 ```
 
-`k` is a calibration constant: 5 for bag-of-words (a 0.2 cosine is a strong match there), re-fit per embedding model. Measured fit for `nomic-embed-text` (tools/calibrate.js, Oct 2026): related questions score 0.51–0.59 against their pages and unrelated ones top out at 0.41, so `k = 1.5`, floor 0.46, centroid drop 0.42.
+`k` is a calibration constant: 5 for bag-of-words (a 0.2 cosine is a strong match there), re-fit per embedding model. The model choice matters more than the constants: `nomic-embed-text` was tried first and cannot separate "same thread" from "same broad domain" — a cross-domain question (sardines, in a deck with a sourdough page) outscored a true follow-up, and chatty meta-questions ("testing") crossed the floor and became wrong-hue attractors. Measured fit for `mxbai-embed-large` (tools/calibrate.js + adversarial probes, Oct 2026): related questions 0.49–0.64, unrelated topical ≤0.29, cross-domain/meta 0.40–0.41 — so `k = 1.45`, floor 0.42, centroid drop 0.38.
 
 **5. New topic.** If the best score is below the floor (0.06 in the prototype), the question is a new topic. It takes the midpoint of the widest empty arc on the hue circle and a radius of 0.25, so it shows up pale. Its hue is therefore relative to the conversation's history, not fixed (see Open decisions).
 

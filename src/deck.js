@@ -37,10 +37,10 @@ function fillInline(el, parts) {
 }
 
 /**
- * @param {{ deck: HTMLElement, count: HTMLElement, form: HTMLFormElement, input: HTMLTextAreaElement,
+ * @param {{ deck: HTMLElement, form: HTMLFormElement, input: HTMLTextAreaElement,
  *           onLimit?: (ev: { status: string, windows: object }) => void }} els
  */
-export function initDeck({ deck, count, form, input, onLimit }) {
+export function initDeck({ deck, form, input, onLimit }) {
 
   /** @param {HTMLElement} el @param {Page} p */
   function paint(el, p) {
@@ -108,7 +108,6 @@ export function initDeck({ deck, count, form, input, onLimit }) {
       page.append(sq, strip, full);
       deck.appendChild(page);
     });
-    count.textContent = state.pages.length + (state.pages.length === 1 ? " page" : " pages");
     alignComposer();
   }
 

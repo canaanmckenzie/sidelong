@@ -31,7 +31,7 @@ and no accounts beyond the ones you already have.
   needed), then pull the model:
 
   ```
-  ollama pull nomic-embed-text   # ~270 MB; CPU is plenty
+  ollama pull mxbai-embed-large   # ~670 MB; CPU is plenty
   ```
 
 ## Running it
@@ -89,7 +89,7 @@ post-answer re-score changed its mind, the line keeps the history:
 | `SIDELONG_ORIGIN` | `http://localhost:5173` | CORS origin for the app |
 | `CLAUDE_BIN` | `claude` | the CLI the chat rides |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | where embeddings live |
-| `EMBED_MODEL` | `nomic-embed-text` | swap it, then re-fit: `node tools/calibrate.js <model>` prints the similarity matrix for re-tuning `EMB` in `src/jev.js` |
+| `EMBED_MODEL` | `mxbai-embed-large` | swap it, then re-fit: `node tools/calibrate.js <model>` prints the similarity matrix for re-tuning `EMB` in `src/jev.js` (smaller models were tried and couldn't separate "same thread" from "same broad domain") |
 
 ## Shape
 

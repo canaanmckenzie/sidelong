@@ -57,29 +57,46 @@ test("offline fallback: bag-of-words calls the VLAN question a new topic", () =>
 });
 
 // Embedding calibration, pinned against similarities measured with
-// nomic-embed-text over these fixtures (tools/calibrate.js, Oct 2026):
-// related questions scored 0.51–0.59, unrelated topped out at 0.41.
-// If EMBED_MODEL changes, re-run the script and refit EMB + these sims.
+// mxbai-embed-large over these fixtures and the adversarial probes
+// (tools/calibrate.js + the Oct 2026 sardines incident): related
+// questions scored 0.49–0.64, unrelated topical ones ≤0.29, and the
+// hard cases (cross-domain, chatty meta) 0.40–0.41. If EMBED_MODEL
+// changes, re-run the script and refit EMB + these sims.
 test("embeddings: the CoDel follow-up clears 80% confidence", () => {
-  const r = place(SEED[1].q, [0.511], fixtures.slice(0, 1), EMB);
+  const r = place(SEED[1].q, [0.558], fixtures.slice(0, 1), EMB);
   assert.equal(r.novel, false);
   assert.equal(r.near, 0);
   assert.ok(r.r >= 0.8, `confidence ${r.r.toFixed(2)} should be ≥ 0.8`);
 });
 
 test("embeddings: sourdough stays below the floor and lands pale", () => {
-  const r = place(SEED[3].q, [0.407, 0.382, 0.344], fixtures.slice(0, 3), EMB);
+  const r = place(SEED[3].q, [0.289, 0.293, 0.246], fixtures.slice(0, 3), EMB);
   assert.equal(r.novel, true);
   assert.equal(r.r, 0.25);
 });
 
 test("embeddings: the VLAN question lands beside Smart Queues (the flipped TODO)", () => {
   // The hand-set 196° in the fixture was narrative; centroid placement
-  // puts a page next to its one qualifying neighbor, so ≈222° is correct.
-  const r = place(SEED[2].q, [0.506, 0.387], fixtures.slice(0, 2), EMB);
+  // puts a page between its qualifying neighbors, so ≈222–229° is correct.
+  const r = place(SEED[2].q, [0.551, 0.487], fixtures.slice(0, 2), EMB);
   assert.equal(r.novel, false);
   assert.equal(r.near, 0);
   assert.ok(angDist(r.ang, SEED[0].ang) <= 10, `got ${r.ang.toFixed(1)}°, want ${SEED[0].ang}° ±10`);
+});
+
+// Regression: the sardines incident (Oct 2026). On nomic-embed-text a
+// cross-domain question ("random question about sardines" in a cooking-
+// adjacent deck) and a chatty meta-question ("testing") both crossed the
+// floor and read as confident follow-ups — the meta page then sat in the
+// deck as a wrong-hue attractor. With mxbai both measure ~0.40, below
+// floor: pale new topics.
+test("embeddings: cross-domain and meta questions stay new topics", () => {
+  const sardines = place("random question about sardines", [0.365, 0.403], [fixtures[0], fixtures[3]], EMB);
+  assert.equal(sardines.novel, true);
+  assert.equal(sardines.r, 0.25);
+  const testing = place("testing", [0.406], [fixtures[4]], EMB);
+  assert.equal(testing.novel, true);
+  assert.equal(testing.r, 0.25);
 });
 
 test("a new topic takes the midpoint of the widest empty arc", () => {

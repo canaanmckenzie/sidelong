@@ -23,7 +23,6 @@ const input = /** @type {HTMLTextAreaElement} */ (must("q"));
 
 initDeck({
   deck: must("deck"),
-  count: must("count"),
   form: /** @type {HTMLFormElement} */ (must("composer")),
   input,
   onLimit: (ev) => limits.update(ev),

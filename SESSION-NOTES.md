@@ -117,6 +117,30 @@ docs/screenshot.png). No remote configured yet; no LICENSE file yet —
 user decides both. Their email is public in commit authorship (their
 own git identity).
 
+## The sardines incident (Oct 14, user bug report)
+
+"random question about sardines" read as a blue follow-up at 88%.
+Diagnosis (measured, scripts were in scratchpad; method = embed probe
+pairs and compare): nomic-embed-text cannot separate "same thread" from
+"same domain" — sardines→sourdough-page 0.535 OUTSCORED the true
+follow-up codel→smartq 0.511, and the chatty "testing" page crossed the
+floor vs networking (0.499), took blue, and became an attractor for
+later chatty questions. Neither nomic task prefixes nor question↔
+question scoring fixed the ordering. Bake-off (nomic / mxbai-embed-large
+/ embeddinggemma raw) on fixtures + adversarial probes: mxbai separates
+(related 0.49–0.64, unrelated topical ≤0.29, cross-domain/meta
+0.40–0.41). Switched EMBED_MODEL default to mxbai-embed-large,
+EMB = {k: 1.45, floor: 0.42, drop: 0.38}, regression test pinned
+("embeddings: cross-domain and meta questions stay new topics").
+Warm embed 40–75 ms. nomic-embed-text is still pulled on this machine
+(`ollama rm nomic-embed-text` reclaims ~270 MB).
+Lesson for future model swaps: calibrate.js fixtures alone overfit —
+always probe cross-domain and chatty/meta cases too.
+
+Also this pass: header page count removed (user request); readout
+earlier trimmed to verdict + confidence with raw numbers in the
+tooltip.
+
 ## Next: milestone 6 (HANDOFF.md)
 
 Persistence: IndexedDB for pages behind the existing store functions;
