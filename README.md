@@ -1,55 +1,97 @@
 # Sidelong
 
-A chat interface laid out sideways: every question-and-answer pair is a page,
-the open page sits in the middle, and older pages collapse into thin vertical
-strips on the left. Each page carries a colored square whose hue says what it
-is about and whose saturation says how sure the classifier was.
+A chat interface laid out sideways. Every question-and-answer pair is a
+page; the open page sits in the middle of the screen, and older pages
+collapse into thin vertical strips on the left, so a long session reads
+as a row of tabs instead of a scroll. Each page carries a colored mark —
+hue says what the page is about, saturation says how sure the classifier
+was — so related follow-ups share a color and a stack of twenty old
+pages can be scanned by eye.
 
-`HANDOFF.md` is the full design document. `prototype/sidelong.html` is the
-original one-file prototype this build is split from.
+![Sidelong: strips on the left, the open page in the middle](docs/screenshot.png)
+
+It runs entirely on things you already have. Chat drives the Claude Code
+CLI you're logged into, so turns are billed to your existing Claude
+subscription (Pro/Max) exactly like your normal `claude` sessions — a
+deck *is* one Claude session, resumed turn by turn. Topic embeddings
+come from a small local Ollama model. There are **no API keys anywhere**
+and no accounts beyond the ones you already have.
+
+## Requirements
+
+- **Node.js 22+**
+- **[Claude Code](https://claude.com/claude-code)**, installed and
+  logged in (`claude` on your PATH). The server runs it headless
+  (`claude -p`); usage counts against your subscription's normal limits,
+  which you can check from the `%` glyph in the composer.
+- **[Ollama](https://ollama.com)** with the embedding model:
+  `ollama pull nomic-embed-text` (~270 MB; CPU is plenty).
 
 ## Running it
 
 ```
-npm install     # dev deps only: typescript + @types/node; scripts disabled via .npmrc
-npm run dev     # zero-dependency static server → http://localhost:5173
-npm run server  # the API server → http://localhost:8787 (no keys needed)
-npm test        # node's built-in test runner
-npm run check   # type-check the JSDoc annotations (tsc --noEmit, nothing compiled)
+npm install        # dev deps only (typescript + @types/node); install scripts are disabled
 ```
 
-There are no API keys. `POST /chat` takes `{ prompt, sessionId? }` and
-streams SSE events (`session`, `token`, `stop`, `done`, `limit`, `error`) by
-driving the Claude Code CLI you're already logged into (headless
-`claude -p --resume`, billed to the existing Max subscription — a deck
-is one Claude session). `POST /embed` takes `{ texts: [...] }` and
-returns `{ model, vectors }` from a local Ollama (`ollama serve` with
-`nomic-embed-text`; `GET /healthz` reports whether it's reachable).
-Overridable via `CLAUDE_BIN`, `OLLAMA_URL`, `EMBED_MODEL`, `PORT`,
-`SIDELONG_ORIGIN`.
+Then three processes, any order:
+
+```
+ollama serve       # embeddings       → localhost:11434
+npm run server     # the thin server  → localhost:8787
+npm run dev        # the app          → localhost:5173
+```
+
+Open http://localhost:5173 and ask something. The page opens the moment
+you press Enter, already colored by a word-match classifier; ~30 ms
+later the real embedding verdict settles the color, and after the answer
+streams in, the page is re-scored against question *plus* answer — if
+the verdict changes, the readout under the question says so
+(`new topic → follow-up`). Arrow keys move between pages when the
+composer isn't focused.
+
+If the server or Ollama is down, asking still paints squares from the
+offline word-match fallback and the readout appends `offline`.
+
+### Configuration (environment, all optional)
+
+| Variable | Default | |
+| --- | --- | --- |
+| `PORT` | `8787` | thin-server port |
+| `SIDELONG_ORIGIN` | `http://localhost:5173` | CORS origin for the app |
+| `CLAUDE_BIN` | `claude` | the CLI the chat rides |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | where embeddings live |
+| `EMBED_MODEL` | `nomic-embed-text` | swap it, then re-fit: `node tools/calibrate.js <model>` prints the similarity matrix for re-tuning `EMB` in `src/jev.js` |
 
 ## Shape
 
-Plain JavaScript, native ES modules, no framework, no build step, zero runtime
-dependencies. Types live in JSDoc comments checked by `// @ts-check` — see
-`src/types.js` for the data shapes.
+Plain JavaScript, native ES modules, no framework, no build step, and
+**zero runtime dependencies** — the npm supply chain stays out of it
+(`.npmrc` disables install scripts and pins exact versions; dev deps are
+exactly `typescript` and `@types/node`). Types live in JSDoc comments
+checked by `tsc --noEmit` (`npm run check`); tests run on Node's
+built-in runner (`npm test`).
 
-- `src/jev.js` — the classifier and the OKLCH painter; pure functions
-- `src/deck.js` — rendering, navigation, the composer
-- `src/store.js` — deck state (in memory until milestone 6)
-- `src/theme.js` — the b/w and slate palettes
-- `src/chat.js` — streaming client for the thin server (`serverUp`, `streamChat`, `embed`)
-- `src/md.js` — zero-dependency markdown reader (pure parser; deck.js builds the DOM via textContent)
+- `src/jev.js` — the classifier and the OKLCH painter; pure functions,
+  one `place()` shared by the word-match and embedding paths
+- `src/deck.js` — rendering, navigation, the composer, streaming
+- `src/md.js` — zero-dependency markdown reader (pure parser; the DOM is
+  built via `textContent`, no injection path)
+- `src/chat.js` — streaming client for the thin server
 - `src/limits.js` — the `%` usage glyph and its readout
+- `src/store.js` — deck state (in memory until milestone 6)
+- `src/theme.js` — the black-on-white and slate-with-cream palettes
 - `src/fixtures.js` — the five seed pages, also used by the tests
-- `server/index.js` — the thin API server (`/embed`, `/chat`); zero deps, `node:http` + `claude -p` + Ollama
-- `server/sse.js` — NDJSON/SSE parsing and stream-event translation; pure functions
-- `tools/serve.js` — the dev server
-- `test/jev.test.js`, `test/sse.test.js` — classifier and stream-parsing tests
+- `server/index.js` — the thin server: `POST /chat` spawns `claude -p`
+  (stream-json → simplified SSE), `POST /embed` calls Ollama,
+  `GET /healthz`; `node:http` + `fetch`, nothing else
+- `server/sse.js` — stream parsing and translation; pure functions
+- `tools/serve.js`, `tools/calibrate.js` — dev server, calibration
 
-Milestone status (see HANDOFF.md): **1–4 done** — scaffold, the thin
-server, the wired chat, and the real classifier (squares paint instantly
-from bag-of-words, then sharpen from local embeddings ~30 ms later;
-offline, the word-match placement stands and the readout says so). Run
-`npm run dev`, `npm run server`, and `ollama serve`, then ask away.
-Next: re-color after the answer (milestone 5).
+`HANDOFF.md` is the full design document (interaction model, visual
+spec, the classifier math, acceptance criteria). `SESSION-NOTES.md`
+tracks the build session to session. `prototype/sidelong.html` is the
+original one-file prototype.
+
+Milestone status (see HANDOFF.md): **1–5 done** — scaffold, server,
+wired chat, real classifier, re-color. Next: persistence (milestone 6:
+IndexedDB, reload restores the deck) and polish (milestone 7).

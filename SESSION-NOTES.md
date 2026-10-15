@@ -83,14 +83,49 @@ Milestones 1–3 of HANDOFF.md are done and verified, plus the usage glyph:
 - md.js em/strong don't nest (flat tokenization); tables and images
   unsupported. Fine until it visibly bites.
 
-## Next: milestone 5 (HANDOFF.md) + aesthetics
+## Aesthetic passes 1–2 (user-driven, Oct 14)
 
-**The user wants an aesthetics session**: "I want this thing to look
-and feel good, snappy, clean" — they asked to be invited to give input.
-Do that before or alongside milestone 5 (re-color after the answer:
-re-run place() from the q+a evec — deck.js finally-block already stores
-it — animate the square, allow the verdict to change, surface verdict
-changes in the readout).
+Reviewed live by the user against screenshots (~/sidelong-qa*.png):
+- Strip spacing bug fixed (vertical-rl axes: the gaps are
+  padding-INLINE, centering is padding-BLOCK — don't regress this).
+- Collapsed pages: 12px square → 3px full-height color spine on the
+  right edge, the deck's ONLY separator (page border-left removed,
+  header/composer rules removed, brand text removed).
+- Question title at 17px top padding ("a hair below the strip heads"),
+  open-page square level with it.
+- Composer's first character flush with the open page's left edge —
+  computed as active-index × strip width (not measured; lands on the
+  post-animation value), transitioned like the deck.
+- Crowded decks: container query fades strip text below 23px width →
+  pure color (user: "after the words become unreadable, it's just
+  colors").
+- Usage readout times are 12-hour am/pm.
+- HANDOFF.md visual spec amended for all of it.
+
+## Milestone 5 (done)
+
+recolor(p, i) in deck.js: after the stream, embed(q+a) → re-place with
+EMB → square cross-fades (existing 400ms transition), verdict may
+change; when it does, p.was keeps the old word and the readout shows
+"new topic → follow-up". Offline → submit-time placement stands.
+
+## GitHub
+
+README rewritten for strangers (requirements: Node 22+, Claude Code
+logged in, Ollama + nomic-embed-text; three processes; no API keys;
+docs/screenshot.png). No remote configured yet; no LICENSE file yet —
+user decides both. Their email is public in commit authorship (their
+own git identity).
+
+## Next: milestone 6 (HANDOFF.md)
+
+Persistence: IndexedDB for pages behind the existing store functions;
+load the last deck on open (restore sessionId with it so the Claude
+session resumes); export/import JSON. Mind: evec arrays (768 floats)
+serialize fine; vec Maps need structured clone (IndexedDB handles Maps)
+or rebuild via reindexPage on load. Then milestone 7 polish (trackpad
+scroll steps pages; strip overflow rail past ~30 pages — the container
+query already handles legibility).
 
 ## Environment
 
