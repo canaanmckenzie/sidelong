@@ -2,4 +2,5 @@ node_modules/
 
 # local screenshot/demo scaffolding, never shipped
 docs/demo.html
+docs/bubble-demo.html
 /_*.html

@@ -6,6 +6,7 @@
  * plumbing.
  */
 import { state, serializeDeck, restoreDeck, newDeck } from "./store.js";
+import { bubbleConfirm, bubbleNotice } from "./bubble.js";
 
 /**
  * @param {{ button: HTMLButtonElement, panel: HTMLElement, file: HTMLInputElement, onChange: () => void }} els
@@ -36,14 +37,16 @@ export function initDeckMenu({ button, panel, file, onChange }) {
     panel.appendChild(b);
   };
 
-  item("export deck", () => {
+  const exportDeck = () => {
     const blob = new Blob([JSON.stringify(serializeDeck(), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "sidelong-deck.json";
+    a.download = `sidelong-deck-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-  });
+  };
+
+  item("export deck", exportDeck);
 
   item("import deck", () => file.click());
   file.addEventListener("change", async () => {
@@ -54,11 +57,21 @@ export function initDeckMenu({ button, panel, file, onChange }) {
     let data = null;
     try { data = JSON.parse(await f.text()); } catch { /* falls through to the alert */ }
     if (data && restoreDeck(data)) onChange();
-    else alert("That file doesn't look like a sidelong deck export.");
+    else bubbleNotice("That file doesn't look like a sidelong deck export.");
   });
 
-  item("new deck", () => {
-    if (state.pages.length > 0 && !confirm("Start a new deck? Export first if you want to keep this one.")) return;
+  // fresh start that keeps the old deck: the export IS the save, so no
+  // confirm — anything cleared here can come back through import
+  item("save & reset", () => {
+    if (state.pages.length > 0) exportDeck();
+    newDeck();
+    onChange();
+  });
+
+  item("new deck", async () => {
+    if (state.pages.length > 0 &&
+        !(await bubbleConfirm("Start a new deck? Export first if you want to keep this one.",
+          { ok: "start fresh", cancel: "keep deck" }))) return;
     newDeck();
     onChange();
   });

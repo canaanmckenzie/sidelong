@@ -190,6 +190,38 @@ body {
 }
 #deckPanel button:hover { color: var(--mute); }
 
+/* the thought bubble (src/bubble.js) — confirm/alert as a flat --bg cloud
+   with a hard --line outline and offset shadow. The outline circles carry a
+   6px stroke; the fill-only cover group erases its inner half and every arc
+   inside the silhouette, leaving a 3px outer line. */
+dialog.bubble { background: none; border: 0; padding: 0; overflow: visible; max-width: none; }
+dialog.bubble::backdrop { background: color-mix(in srgb, var(--bg) 55%, transparent); }
+.bubble .wrap { position: relative; width: min(480px, 92vw); }
+.bubble .wrap svg { display: block; width: 100%; height: auto; }
+.bubble .shadow { fill: var(--line); }
+.bubble .outline { fill: var(--bg); stroke: var(--line); stroke-width: 6; }
+.bubble .cover { fill: var(--bg); }
+.bubble .trail { fill: var(--bg); stroke: var(--line); stroke-width: 3; }
+.bubble .say {
+  /* the cloud's inner safe rect — corners checked against the bump circles */
+  position: absolute; left: 22%; right: 22%; top: 16%; height: 48%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; text-align: center;
+}
+.bubble .msg {
+  margin: 0; font-family: var(--serif); font-size: 16px; line-height: 1.45;
+  color: var(--fg); text-wrap: balance;
+}
+.bubble .actions { display: flex; gap: 14px; }
+.bubble .actions button {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--bg); border: 2px solid var(--line); color: var(--fg);
+  padding: 7px 12px; cursor: pointer; box-shadow: 3px 3px 0 var(--line);
+}
+.bubble .actions button:hover { background: var(--fg); color: var(--bg); }
+.bubble .actions button:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--line); }
+.bubble .actions button:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
 @media (max-width: 600px) {
   :root { --strip: 28px; }
   .strip { font-size: 10px; padding-block: 8px 4px; }
