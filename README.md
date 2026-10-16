@@ -47,8 +47,9 @@ servers, and prints `sidelong → http://localhost:5173`.
 Arrow keys move between pages when the composer isn't focused. Clicking
 a strip opens it. The deck persists in IndexedDB, so a reload restores
 the pages and the Claude session behind them; follow-ups continue the
-same conversation tomorrow. The `⋯` glyph exports the deck as JSON,
-imports one, or starts a new deck. If the server or Ollama is down,
+same conversation tomorrow. The `⋯` glyph holds the deck menu: export
+to JSON, import, save & reset (export, then start fresh), or new deck.
+If the server or Ollama is down,
 questions still get colors from a bag-of-words fallback and the readout
 says `offline`.
 
@@ -90,21 +91,28 @@ confident in. If the post-answer re-score changed the verdict, the line
 keeps the history: `new topic → follow-up · 84%`. Hovering it shows the
 raw numbers (nearest page, cosine, hue).
 
-The calibration constants were fit by measurement, not guessed:
-`node tools/calibrate.js <model>` prints the question-to-page cosine
-matrix over the fixture deck. The default model is `mxbai-embed-large`
-because smaller models tested couldn't separate "same thread" from
-"same broad domain" (a question about sardines outscored a genuine
-networking follow-up on `nomic-embed-text`).
+The calibration constants are measured: `node tools/calibrate.js
+<model>` prints the question-to-page cosine matrix over the fixture
+deck. The default is `mxbai-embed-large` because the smaller models
+tried here couldn't tell "same thread" from "same broad domain" — on
+`nomic-embed-text`, a question about sardines outscored a genuine
+networking follow-up.
 
 ## What talks to what
 
 - Questions go to Anthropic through the `claude` CLI, exactly as in a
   normal Claude Code session. No other service is contacted.
+- The Claude session can read local files to answer questions about
+  them — `Read`, `Glob`, and `Grep` only, an allowlist with no shell,
+  no writes, and no web tools. Every read streams into the answer as a
+  small `→ read …` line, so you see what it looked at. `SIDELONG_TOOLS`
+  widens the list if you want that; be deliberate about it, because a
+  headless session has no permission prompt to catch a bad idea.
 - Embeddings are computed locally by Ollama and stay on your machine.
-- The thin server (`server/index.js`, about 200 lines) binds localhost,
-  holds no credentials, and does two things: spawn `claude -p` and call
-  Ollama.
+- The thin server (`server/index.js`) binds 127.0.0.1 only, holds no
+  credentials, and does two things: spawn `claude -p` and call Ollama.
+  A turn that goes silent for two minutes is killed and reported
+  rather than left hanging.
 - The deck lives in your browser's IndexedDB and in JSON files you
   export.
 
@@ -117,6 +125,8 @@ networking follow-up on `nomic-embed-text`).
 | `CLAUDE_BIN` | `claude` | the CLI that chat runs through |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | where embeddings come from |
 | `EMBED_MODEL` | `mxbai-embed-large` | if you swap it, re-fit `EMB` in `src/jev.js` with `tools/calibrate.js` |
+| `SIDELONG_TOOLS` | `Read Glob Grep` | the CLI's tool allowlist — read-only on purpose |
+| `SIDELONG_STALL_MS` | `120000` | how long a silent turn lives before the stall guard kills it |
 
 ## Shape
 
@@ -136,7 +146,9 @@ versions. Types are JSDoc comments checked by `tsc --noEmit`
   slant, and ink level
 - `src/chat.js` — streaming client for the thin server
 - `src/limits.js` — the `%` usage glyph and its readout
-- `src/deckmenu.js` — the `⋯` glyph: export / import / new deck
+- `src/deckmenu.js` — the `⋯` glyph: export / import / save & reset / new deck
+- `src/bubble.js` — the thought-bubble dialog that stands in for
+  `confirm()` and `alert()`
 - `src/store.js` — deck state, persisted to IndexedDB; JSON export/import
 - `src/theme.js` — the black-on-white and slate-with-cream palettes
 - `src/fixtures.js` — the five seed pages, also used by the tests
@@ -156,8 +168,8 @@ one-file prototype.
 
 - One deck at a time. Two open app tabs will race the save
   (last writer wins).
-- Requires a Claude subscription; that's the point of the design, not a
-  limitation being hidden.
+- Needs a Claude subscription. Chat deliberately rides the CLI login
+  instead of an API key, so without one there's nothing to talk to.
 - The markdown renderer covers paragraphs, fenced code, headings, lists,
   blockquotes, and inline code/bold/italic/links. No tables or images.
 - A hue circle is one dimension and topics aren't, so with enough
