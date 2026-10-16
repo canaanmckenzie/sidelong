@@ -173,6 +173,16 @@ export function initDeck({ deck, form, input, onLimit }) {
       para.textContent = p.note;
       a.appendChild(para);
     }
+    // nothing streamed yet: the thought trail, kin to the dialog cloud's
+    const waiting = !!p.waiting && !p.a && !p.note;
+    if (waiting) {
+      const t = document.createElement("div");
+      t.className = "thinking";
+      t.setAttribute("aria-hidden", "true");
+      for (let k = 0; k < 3; k++) t.appendChild(document.createElement("i"));
+      a.appendChild(t);
+    }
+    a.setAttribute("aria-busy", String(waiting));
   }
 
   /** Redraw only one page's answer, so streaming doesn't rebuild the deck. @param {number} i */
@@ -180,6 +190,14 @@ export function initDeck({ deck, form, input, onLimit }) {
     const a = deck.children[i]?.querySelector(".a");
     const p = state.pages[i];
     if (a && p) fillAnswer(a, p);
+  }
+
+  /** The thought trail gives way to content: fade the answer in once
+   *  instead of hard-cutting. One-shot, so streaming never re-flashes.
+   *  @param {number} i */
+  function softEnter(i) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    deck.children[i]?.querySelector(".a")?.animate({ opacity: [0, 1] }, 220);
   }
 
   const askBtn = /** @type {HTMLButtonElement | null} */ (form.querySelector("#ask"));
@@ -239,7 +257,7 @@ export function initDeck({ deck, form, input, onLimit }) {
     // verdict follows a beat later and repaints without moving anything.
     const r = jev(text, state.pages);
     /** @type {Page} */
-    const p = { q: text, a: "", ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel };
+    const p = { q: text, a: "", ang: r.ang, r: r.r, near: r.near, sim: r.sim, novel: r.novel, waiting: true };
     addPage(p, true);
     const i = state.pages.length - 1;
     state.active = i;
@@ -253,8 +271,11 @@ export function initDeck({ deck, form, input, onLimit }) {
         { prompt: text, ...(state.sessionId ? { sessionId: state.sessionId } : {}) },
         (ev) => {
           if (ev.type === "token") {
+            const first = p.waiting;
+            p.waiting = false;
             p.a += ev.text;
             renderAnswer(i);
+            if (first) softEnter(i);
           } else if (ev.type === "session") {
             state.sessionId = ev.sessionId;
             saveDeck();
@@ -274,6 +295,8 @@ export function initDeck({ deck, form, input, onLimit }) {
       renderAnswer(i);
     } finally {
       busy = false;
+      p.waiting = false; // covers stops, errors, and empty end_turns
+      renderAnswer(i);
       if (askBtn) askBtn.disabled = false;
       reindexPage(p); // later questions score against the full answer
       saveDeck();

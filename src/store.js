@@ -73,6 +73,8 @@ export async function loadDeck() {
     persistOn = true;
     // an empty-but-saved deck is a deliberate "new deck", not a first run
     if (got && Array.isArray(got.pages)) {
+      // a save can land mid-stream; no restored page is ever still thinking
+      for (const p of got.pages) delete p.waiting;
       state.pages = got.pages;
       state.sessionId = typeof got.sessionId === "string" ? got.sessionId : null;
       state.active = got.pages.length ? Math.min(Number(got.active) || 0, got.pages.length - 1) : 0;

@@ -17,6 +17,7 @@
  * @property {number[]} [evec]        embedding vector (question alone until the answer lands, then question+answer)
  * @property {boolean} [offline]      embedding placement failed; the square stands on the word-match fallback
  * @property {string} [was]           the verdict before the post-answer re-color changed it
+ * @property {boolean} [waiting]      true from submit until the first token; draws the thought trail
  *
  * @typedef {object} JevResult
  * @property {number} ang

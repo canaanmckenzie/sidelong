@@ -190,6 +190,25 @@ body {
 }
 #deckPanel button:hover { color: var(--mute); }
 
+/* the thought trail: three outlined circles where the answer will start,
+   kin to the dialog cloud's trail — a thought forming. Hard two-step blink
+   (steps, not a fade) staggered across the row. */
+.a .thinking { display: flex; align-items: flex-end; gap: 10px; padding-top: 6px; }
+.a .thinking i {
+  display: block; box-sizing: border-box; border-radius: 50%;
+  border: 2px solid var(--line); background: var(--bg);
+  box-shadow: 2px 2px 0 var(--line);
+  opacity: 0; animation: 1.8s infinite; /* each bubble pops at its own beat */
+}
+.a .thinking i:nth-child(1) { width: 8px; height: 8px; animation-name: think1; }
+.a .thinking i:nth-child(2) { width: 12px; height: 12px; animation-name: think2; }
+.a .thinking i:nth-child(3) { width: 17px; height: 17px; animation-name: think3; }
+/* the thought forms bubble by bubble — pop on (no fade), hold together, clear, repeat */
+@keyframes think1 { 0%, 7.9% { opacity: 0; } 8%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
+@keyframes think2 { 0%, 32.9% { opacity: 0; } 33%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
+@keyframes think3 { 0%, 57.9% { opacity: 0; } 58%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .a .thinking i { animation: none; opacity: 0.6; } }
+
 /* the thought bubble (src/bubble.js) — confirm/alert as a flat --bg cloud
    with a hard --line outline and offset shadow. The outline circles carry a
    6px stroke; the fill-only cover group erases its inner half and every arc
