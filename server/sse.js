@@ -20,6 +20,7 @@
  *
  * @typedef {{ type: "session", sessionId: string }
  *         | { type: "token", text: string }
+ *         | { type: "tool", name: string, detail: string }
  *         | { type: "stop", stopReason: string }
  *         | { type: "done" }
  *         | { type: "limit", status: string, windows: { fiveHour?: LimitWindow, sevenDay?: LimitWindow } }
@@ -100,6 +101,41 @@ export function cliLineToChatEvent(line) {
     default:
       return null; // assistant snapshots, status, …
   }
+}
+
+/**
+ * One short human-readable line for a tool call's input: the field that
+ * names what it touched, whitespace collapsed and capped.
+ * @param {any} input
+ * @returns {string}
+ */
+export function toolDetail(input) {
+  if (!input || typeof input !== "object") return "";
+  const s = input.file_path ?? input.pattern ?? input.path ?? input.command ?? input.query ?? input.url ?? "";
+  const str = (typeof s === "string" && s !== "") ? s : JSON.stringify(input);
+  const flat = str.replace(/\s+/g, " ").trim();
+  return flat.length > 100 ? flat.slice(0, 97) + "…" : flat;
+}
+
+/**
+ * Translate one CLI line into zero or more client events. Most lines map
+ * one-to-one through cliLineToChatEvent; assistant message snapshots add
+ * a tool event per tool_use block (full inputs only appear there — the
+ * partial stream carries them as json deltas the client never sees).
+ * @param {string} line
+ * @returns {ChatEvent[]}
+ */
+export function cliLineToChatEvents(line) {
+  /** @type {any} */
+  let d = null;
+  try { d = JSON.parse(line); } catch { /* cliLineToChatEvent reports it */ }
+  if (d?.type === "assistant" && Array.isArray(d.message?.content)) {
+    return d.message.content
+      .filter((/** @type {any} */ b) => b?.type === "tool_use" && typeof b.name === "string")
+      .map((/** @type {any} */ b) => ({ type: "tool", name: b.name.toLowerCase(), detail: toolDetail(b.input) }));
+  }
+  const ev = cliLineToChatEvent(line);
+  return ev ? [ev] : [];
 }
 
 /**

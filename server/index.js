@@ -21,7 +21,7 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { drainLines, cliLineToChatEvent } from "./sse.js";
+import { drainLines, cliLineToChatEvents } from "./sse.js";
 
 const PORT = Number(process.env.PORT) || 8787;
 const ORIGIN = process.env.SIDELONG_ORIGIN ?? "http://localhost:5173";
@@ -29,6 +29,12 @@ const CLAUDE_BIN = process.env.CLAUDE_BIN ?? "claude";
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
 const EMBED_MODEL = process.env.EMBED_MODEL ?? "mxbai-embed-large";
 const MAX_BODY = 1 << 20; // 1 MiB
+const STALL_MS = Number(process.env.SIDELONG_STALL_MS) || 120_000;
+// the deck's tool allowlist — read-only and local on purpose: this server
+// takes unauthenticated POSTs and the CLI runs headless with nobody
+// watching, so anything beyond look-and-answer belongs to a deliberate
+// override, not a default
+const TOOLS = process.env.SIDELONG_TOOLS ?? "Read Glob Grep";
 
 /**
  * The CLI reports plan usage on every turn; keep the last reading so
@@ -133,8 +139,14 @@ async function handleChat(req, res) {
     "--output-format", "stream-json",
     "--include-partial-messages",
     "--verbose",
-    "--disallowedTools", "*",
+    // read-only local tools: it can look at files to answer, never run,
+    // write, or reach the network. Headless mode auto-denies anything not
+    // on this list; the system prompt must say exactly what is available,
+    // or the model reaches for missing tools and the turn crawls.
+    "--allowedTools", TOOLS,
     "--strict-mcp-config",
+    "--append-system-prompt",
+    `This is a conversation with read-only tools: ${TOOLS}. You may read the user's files to answer questions about them. You cannot run commands, write or edit files, or access the network — never attempt those or output a tool call as text; say plainly what you'd need. Otherwise answer directly in prose.`,
   ];
   if (sessionId) args.push("--resume", sessionId);
 
@@ -142,6 +154,21 @@ async function handleChat(req, res) {
   // not this repo — same place their normal sessions live.
   const child = spawn(CLAUDE_BIN, args, { cwd: homedir(), stdio: ["ignore", "pipe", "pipe"] });
   res.on("close", () => child.kill("SIGTERM")); // reader gone → stop the turn
+
+  // stall guard: a hung turn used to hold the composer busy until the
+  // server was restarted. The CLI emits lines steadily while healthy, so
+  // two minutes of silence means wedged — kill it and tell the client.
+  let stalled = false;
+  /** @type {ReturnType<typeof setTimeout>} */
+  let stallTimer;
+  const armStall = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      stalled = true;
+      child.kill("SIGTERM");
+    }, STALL_MS);
+  };
+  armStall();
 
   res.writeHead(200, { ...cors(res), "content-type": "text/event-stream", "cache-control": "no-store" });
   /** @param {import("./sse.js").ChatEvent} ev */
@@ -151,15 +178,16 @@ async function handleChat(req, res) {
   let sawError = false;
   child.stdout.setEncoding("utf8");
   child.stdout.on("data", (/** @type {string} */ chunk) => {
+    armStall();
     buffer += chunk;
     const drained = drainLines(buffer);
     buffer = drained.rest;
     for (const line of drained.lines) {
-      const ev = cliLineToChatEvent(line);
-      if (!ev) continue;
-      if (ev.type === "error") sawError = true;
-      if (ev.type === "limit") lastLimit = ev;
-      send(ev);
+      for (const ev of cliLineToChatEvents(line)) {
+        if (ev.type === "error") sawError = true;
+        if (ev.type === "limit") lastLimit = ev;
+        send(ev);
+      }
     }
   });
   let stderr = "";
@@ -168,7 +196,10 @@ async function handleChat(req, res) {
     stderr += chunk.slice(0, 4096);
   });
   child.on("close", (code) => {
-    if (code !== 0 && !sawError && !res.closed) {
+    clearTimeout(stallTimer);
+    if (stalled && !res.closed) {
+      send({ type: "error", message: `turn stalled — no output for ${STALL_MS / 1000}s, gave up (ask again to retry)` });
+    } else if (code !== 0 && !sawError && !res.closed) {
       send({ type: "error", message: `claude exited ${code}: ${stderr.trim().slice(-500)}` });
     }
     res.end();
@@ -207,6 +238,8 @@ createServer(async (req, res) => {
     if (!res.headersSent) sendJson(res, 500, { error: err instanceof Error ? err.message : "server error" });
     else res.end();
   }
-}).listen(PORT, () => {
-  console.log(`sidelong server → http://localhost:${PORT} (chat: ${CLAUDE_BIN} -p, embed: ${EMBED_MODEL} @ ${OLLAMA_URL})`);
+  // loopback only: this port speaks for the user's Claude plan and reads
+  // their files — it must never be reachable from the network
+}).listen(PORT, "127.0.0.1", () => {
+  console.log(`sidelong server → http://localhost:${PORT} (chat: ${CLAUDE_BIN} -p, tools: ${TOOLS}, embed: ${EMBED_MODEL} @ ${OLLAMA_URL})`);
 });

@@ -1,7 +1,30 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { drainEvents, toChatEvent, drainLines, cliLineToChatEvent } from "../server/sse.js";
+import { drainEvents, toChatEvent, drainLines, cliLineToChatEvent, cliLineToChatEvents, toolDetail } from "../server/sse.js";
+
+test("assistant snapshots: tool_use blocks become tool events, text stays with the deltas", () => {
+  const line = JSON.stringify({ type: "assistant", message: { content: [
+    { type: "text", text: "let me look" },
+    { type: "tool_use", name: "Read", input: { file_path: "/home/g/notes.md" } },
+    { type: "tool_use", name: "Grep", input: { pattern: "smart\nqueues" } },
+  ] } });
+  assert.deepEqual(cliLineToChatEvents(line), [
+    { type: "tool", name: "read", detail: "/home/g/notes.md" },
+    { type: "tool", name: "grep", detail: "smart queues" },
+  ]);
+  // text-only snapshots stay silent; other lines pass through wrapped
+  assert.deepEqual(cliLineToChatEvents('{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}'), []);
+  assert.deepEqual(cliLineToChatEvents('{"type":"stream_event","event":{"type":"message_stop"}}'), [{ type: "done" }]);
+});
+
+test("toolDetail: names what was touched, collapsed and capped", () => {
+  assert.equal(toolDetail({ file_path: "/a/b.js" }), "/a/b.js");
+  assert.equal(toolDetail({ pattern: "x", other: 1 }), "x");
+  assert.equal(toolDetail(null), "");
+  assert.equal(toolDetail({ weird: true }), '{"weird":true}');
+  assert.equal(toolDetail({ file_path: "x".repeat(150) }), "x".repeat(97) + "…");
+});
 
 test("NDJSON lines split incrementally, partial line kept in rest", () => {
   const first = drainLines('{"type":"system","subtype":"init","session_id":"abc"}\n{"type":"stre');

@@ -32,12 +32,17 @@ createServer(async (req, res) => {
     const file = join(root, rel);
     if (!file.startsWith(root)) throw new Error("outside root");
     const body = await readFile(file);
-    res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
+    // no-cache: modules must never mix versions across edits — one stale
+    // import error takes down the whole app
+    res.writeHead(200, {
+      "content-type": MIME[extname(file)] ?? "application/octet-stream",
+      "cache-control": "no-cache",
+    });
     res.end(body);
   } catch {
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     res.end("not found");
   }
-}).listen(port, () => {
+}).listen(port, "127.0.0.1", () => {
   console.log(`sidelong → http://localhost:${port}`);
 });

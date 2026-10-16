@@ -114,6 +114,8 @@ body {
 .a p { margin: 0 0 1em; }
 .a p:last-child { margin-bottom: 0; }
 .a .note { color: var(--mute); font-style: italic; }
+/* tool activity ("→ read …/deck.js") speaks in the readout's voice */
+.a p.tool { font-family: var(--mono); font-size: 11px; color: var(--mute); letter-spacing: 0.02em; }
 
 /* markdown inside answers */
 .a h3, .a h4, .a h5, .a h6 { font-weight: 500; line-height: 1.3; margin: 1.4em 0 0.4em; }

@@ -164,6 +164,8 @@ export function initDeck({ deck, form, input, onLimit }) {
         // answers start under an h2 question, so markdown # maps to h3
         const el = document.createElement(b.type === "h" ? "h" + Math.min(6, b.level + 2) : "p");
         fillInline(el, b.inline);
+        // tool activity lines stream in as "→ name detail" paragraphs
+        if (b.type === "p" && el.textContent?.startsWith("→ ")) el.className = "tool";
         a.appendChild(el);
       }
     }
@@ -276,10 +278,18 @@ export function initDeck({ deck, form, input, onLimit }) {
             p.a += ev.text;
             renderAnswer(i);
             if (first) softEnter(i);
+          } else if (ev.type === "tool") {
+            // show the read as it happens — a muted activity line in the flow
+            const first = p.waiting;
+            p.waiting = false;
+            p.a += (p.a === "" || p.a.endsWith("\n\n") ? "" : "\n\n")
+              + "→ " + ev.name + (ev.detail ? " " + ev.detail : "") + "\n\n";
+            renderAnswer(i);
+            if (first) softEnter(i);
           } else if (ev.type === "session") {
             state.sessionId = ev.sessionId;
             saveDeck();
-          } else if (ev.type === "stop" && ev.stopReason !== "end_turn") {
+          } else if (ev.type === "stop" && ev.stopReason !== "end_turn" && ev.stopReason !== "tool_use") {
             p.note = "(stopped: " + ev.stopReason + ")";
             renderAnswer(i);
           } else if (ev.type === "limit") {
