@@ -196,3 +196,68 @@ past 6 topics — accept or amend the criterion.
 - Ollama's `ollama.com/download/...tgz` URL 404s; the real asset is
   `ollama-linux-amd64.tar.zst` on GitHub releases.
 - Stray dev servers on :8787 bite — `fuser -k 8787/tcp` before tests.
+
+## Session Oct 15, 2026 (evening) — deck menu, bubbles, tools, security
+
+Shipped (all pushed; repo About is now "horizontal AI"):
+
+- **Save & reset** in the ⋯ menu: export (timestamped filename), then
+  fresh deck; no confirm because the export is the undo. Plain "new
+  deck" (discard + confirm) stays.
+- **bubble.js**: confirm()/alert() replaced by a thought-bubble
+  <dialog>. Cloud = overlapping SVG circles painted three times —
+  shadow copy at (6,6), bumps with a 6px stroke, fill-only covers that
+  erase interior arcs leaving a 3px silhouette. Promise-based so
+  callers pause; showModal gives focus trap + Escape; safe choice
+  listed first (gets focus). Message sits in the cloud's inner safe
+  rect (corners checked against the bump circles — tighten there if
+  text ever crowds). docs/bubble-demo.html stages it, gitignored.
+- **Thought trail**: transient Page.waiting drives three outlined
+  circles in the answer area; bubbles pop in sequence (think1–3
+  keyframes, 1.8s loop), answer fades in 220ms via one-shot WAAPI.
+  waiting cleared by first token/tool/note/finally and stripped in
+  loadDeck (a save can land mid-stream). NOT gated on
+  prefers-reduced-motion: opacity-only, and this box's Firefox snap
+  reports `reduce` spuriously (gsettings says animations on) — gating
+  froze the trail into "three static dots", the user's original
+  complaint twice over.
+- **The breakage** (user: "fully broken"): three stacked causes.
+  (1) CLI was spawned with tools disallowed but never TOLD — questions
+  that smell like tasks ("why don't the percentages match?") made it
+  reach for tools, crawl, and print the tool-call JSON as its answer.
+  (2) No turn timeout → wedged turn held the composer until server
+  restart. (3) serve.js sent no cache headers → mixed-version module
+  graphs after edits → import error → blank app.
+- **Fixes**: read-only tool allowlist `--allowedTools "Read Glob
+  Grep"` (SIDELONG_TOOLS overrides) + system prompt stating the exact
+  tool set; assistant snapshots → {type:"tool"} events
+  (sse.cliLineToChatEvents / toolDetail), deck renders them as muted
+  "→ read …" lines (p.tool class), tool_use stops are continuations;
+  stall guard kills the CLI after 120s stdout silence
+  (SIDELONG_STALL_MS); serve.js sends cache-control: no-cache.
+- **Security decision (user, final): defaults must be safe for repo
+  cloners.** Both servers bind 127.0.0.1 only (they listened on `*` —
+  LAN could spend the plan / read files). Never default to
+  skip-permissions/Bash/web tools: headless has no permission prompt,
+  so injection = execution. Steelmanned full access with the user;
+  they chose read-only local. Also saved to Claude memory.
+- README caught up (tools, binding, env vars, menu, bubble.js) and two
+  "X, not Y" sentences flattened; user wants it non-LLM-sounding.
+
+Gotchas this session:
+
+- Headless Firefox CANNOT run while the user's snap Firefox is open
+  ("already running, but is not responding" — --new-instance and
+  --no-remote don't help). Raster-check geometry with a stdlib Python
+  renderer in the scratchpad instead, or ask the user to look.
+- This Firefox matches prefers-reduced-motion: reduce even though
+  gsettings enable-animations is true (snap portal suspected). Don't
+  gate status indicators on it; verify with
+  matchMedia("(prefers-reduced-motion: reduce)") in the console.
+- 45 tests now (sse tool-event extraction + toolDetail added).
+
+Still open: milestone 7 (trackpad paging, strip overflow); the ⋯ menu
+is five items now and may want grouping someday; limits glyph vs Max
+dashboard mismatch unexplained (glyph shows last turn's CLI-reported
+window utilization — lags the dashboard by design, but the user
+noticed, so maybe surface a "as of <time>" hint).

@@ -205,11 +205,13 @@ body {
 .a .thinking i:nth-child(1) { width: 8px; height: 8px; animation-name: think1; }
 .a .thinking i:nth-child(2) { width: 12px; height: 12px; animation-name: think2; }
 .a .thinking i:nth-child(3) { width: 17px; height: 17px; animation-name: think3; }
-/* the thought forms bubble by bubble — pop on (no fade), hold together, clear, repeat */
+/* the thought forms bubble by bubble — pop on (no fade), hold together,
+   clear, repeat. Deliberately NOT gated on prefers-reduced-motion: it is
+   opacity-only (nothing travels), and VMs/snap portals report `reduce`
+   when nobody asked — a frozen status indicator reads as a hang. */
 @keyframes think1 { 0%, 7.9% { opacity: 0; } 8%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
 @keyframes think2 { 0%, 32.9% { opacity: 0; } 33%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
 @keyframes think3 { 0%, 57.9% { opacity: 0; } 58%, 92% { opacity: 1; } 92.1%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .a .thinking i { animation: none; opacity: 0.6; } }
 
 /* the thought bubble (src/bubble.js) — confirm/alert as a flat --bg cloud
    with a hard --line outline and offset shadow. The outline circles carry a

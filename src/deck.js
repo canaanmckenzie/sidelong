@@ -195,10 +195,10 @@ export function initDeck({ deck, form, input, onLimit }) {
   }
 
   /** The thought trail gives way to content: fade the answer in once
-   *  instead of hard-cutting. One-shot, so streaming never re-flashes.
-   *  @param {number} i */
+   *  instead of hard-cutting. One-shot, so streaming never re-flashes;
+   *  opacity-only, so it doesn't defer to reduced-motion (which VM/snap
+   *  setups report spuriously). @param {number} i */
   function softEnter(i) {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     deck.children[i]?.querySelector(".a")?.animate({ opacity: [0, 1] }, 220);
   }
 
